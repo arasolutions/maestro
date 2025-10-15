@@ -22,7 +22,9 @@
       "Bash(curl:*)",
       "Bash(\"C:\\wamp64-v3\\bin\\php\\php8.2.26\\php.exe\" bin/console importmap:install)",
       "Bash(\"C:\\wamp64-v3\\bin\\php\\php8.2.26\\php.exe\" bin/console debug:asset-map)",
-      "Bash(\"C:\\wamp64-v3\\bin\\php\\php8.2.26\\php.exe\" bin/console asset-map:compile)"
+      "Bash(\"C:\\wamp64-v3\\bin\\php\\php8.2.26\\php.exe\" bin/console asset-map:compile)",
+      "Bash(\"C:\\wamp64-v3\\bin\\php\\php8.2.26\\php.exe\" -S localhost:8000 -t public public/router.php)",
+      "Bash(if exist nul del nul)"
     ],
     "deny": [],
     "ask": [],

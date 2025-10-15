@@ -216,7 +216,8 @@
 {% block javascripts %}
     {{ parent() }}
     <script type="module">
-        import Chart from 'chart.js';
+        import { Chart, registerables } from 'chart.js';
+        Chart.register(...registerables);
 
         // Complexity Distribution Chart
         const complexityCtx = document.getElementById('complexityChart');
