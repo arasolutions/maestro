@@ -102,10 +102,12 @@
     <div class="col-md-6">
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-white border-0 py-3">
-                <h5 class="mb-0">Distribution de Complexité</h5>
+                <h5 class="mb-0 text-dark">Distribution de Complexité</h5>
             </div>
             <div class="card-body">
-                <canvas id="complexityChart" height="200"></canvas>
+                <div style="height: 300px; position: relative;">
+                    <canvas id="complexityChart"></canvas>
+                </div>
             </div>
         </div>
     </div>
@@ -113,10 +115,12 @@
     <div class="col-md-6">
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-white border-0 py-3">
-                <h5 class="mb-0">Distribution des Priorités</h5>
+                <h5 class="mb-0 text-dark">Distribution des Priorités</h5>
             </div>
             <div class="card-body">
-                <canvas id="priorityChart" height="200"></canvas>
+                <div style="height: 300px; position: relative;">
+                    <canvas id="priorityChart"></canvas>
+                </div>
             </div>
         </div>
     </div>
@@ -127,7 +131,7 @@
     <div class="col-12">
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-white border-0 py-3">
-                <h5 class="mb-0">Analyses Récentes</h5>
+                <h5 class="mb-0 text-dark">Analyses Récentes</h5>
             </div>
             <div class="card-body">
                 <div class="table-responsive">
@@ -137,7 +141,10 @@
                                 <th>Requête</th>
                                 <th>Complexité</th>
                                 <th>Priorité</th>
-                                <th>Confiance</th>
+                                <th>
+                                    Confiance
+                                    <span class="text-muted" style="cursor: help;" title="Score de confiance de l'IA : ≥80% (vert)=très fiable, 60-79% (bleu)=moyenne, <60% (jaune)=faible">ⓘ</span>
+                                </th>
                                 <th>Date</th>
                                 <th>Actions</th>
                             </tr>
@@ -156,7 +163,7 @@
                                     </span>
                                 </td>
                                 <td>
-                                    <span class="badge bg-{{ analysis.priority == 'CRITICAL' ? 'danger' : (analysis.priority == 'HIGH' ? 'warning' : 'info') }}">
+                                    <span class="badge bg-{{ analysis.priority == 'CRITICAL' ? 'danger' : (analysis.priority == 'HIGH' ? 'warning' : (analysis.priority == 'MEDIUM' ? 'info' : 'secondary')) }}">
                                         {{ analysis.priority }}
                                     </span>
                                 </td>
@@ -178,7 +185,7 @@
                                     </small>
                                 </td>
                                 <td>
-                                    <a href="/analysis/{{ analysis.id }}" class="btn btn-sm btn-outline-primary">
+                                    <a href="{{ path('app_analysis_detail', {id: analysis.id}) }}" class="btn btn-sm btn-outline-primary">
                                         Détails
                                     </a>
                                 </td>
@@ -238,7 +245,8 @@
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: false,
+                maintainAspectRatio: true,
+                aspectRatio: 1.5,
                 plugins: {
                     legend: {
                         position: 'bottom'
@@ -261,7 +269,8 @@
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: false,
+                maintainAspectRatio: true,
+                aspectRatio: 1.5,
                 plugins: {
                     legend: {
                         display: false

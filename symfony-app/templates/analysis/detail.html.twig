@@ -1,0 +1,184 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Analyse {{ analysis.id|slice(0, 8) }} - MAESTRO{% endblock %}
+
+{% block body %}
+<div class="row mb-4">
+    <div class="col">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ path('app_dashboard') }}">Dashboard</a></li>
+                <li class="breadcrumb-item active">Analyse {{ analysis.id|slice(0, 8) }}</li>
+            </ol>
+        </nav>
+        <h1 class="display-6 fw-bold">Détail de l'Analyse</h1>
+    </div>
+</div>
+
+{# En-tête de l'analyse #}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-8">
+                        <h5 class="card-title">Requête</h5>
+                        <p class="lead">{{ analysis.request_text }}</p>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <strong>Type :</strong>
+                            <span class="badge bg-primary">{{ analysis.analysis_type }}</span>
+                        </div>
+                        <div class="mb-3">
+                            <strong>Complexité :</strong>
+                            <span class="badge bg-{{ analysis.complexity == 'XS' ? 'success' : (analysis.complexity == 'S' ? 'info' : (analysis.complexity == 'M' ? 'warning' : 'danger')) }}">
+                                {{ analysis.complexity }}
+                            </span>
+                        </div>
+                        <div class="mb-3">
+                            <strong>Priorité :</strong>
+                            <span class="badge bg-{{ analysis.priority == 'CRITICAL' ? 'danger' : (analysis.priority == 'HIGH' ? 'warning' : (analysis.priority == 'MEDIUM' ? 'info' : 'secondary')) }}">
+                                {{ analysis.priority }}
+                            </span>
+                        </div>
+                        <div class="mb-3">
+                            <strong>Confiance :</strong>
+                            <div class="progress" style="height: 25px;">
+                                <div class="progress-bar bg-{{ analysis.confidence >= 0.8 ? 'success' : (analysis.confidence >= 0.6 ? 'info' : 'warning') }}"
+                                     role="progressbar"
+                                     style="width: {{ (analysis.confidence * 100)|round }}%">
+                                    {{ (analysis.confidence * 100)|round }}%
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <strong>Heures estimées :</strong> {{ analysis.estimated_hours ?? 'N/A' }}h
+                        </div>
+                        <div>
+                            <small class="text-muted">Créé le {{ analysis.created_at|date('d/m/Y à H:i') }}</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Agents nécessaires #}
+{% if analysis.agents_needed %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">Agents IA Nécessaires</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex flex-wrap gap-2">
+                    {% for agent in analysis.agents_needed %}
+                        <span class="badge bg-info fs-6 px-3 py-2">{{ agent }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{# Prochaines étapes #}
+{% if analysis.next_steps %}
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">Prochaines Étapes</h5>
+            </div>
+            <div class="card-body">
+                <ol class="mb-0">
+                    {% for step in analysis.next_steps %}
+                        <li class="mb-2">{{ step }}</li>
+                    {% endfor %}
+                </ol>
+            </div>
+        </div>
+    </div>
+
+    {# Risques #}
+    {% if analysis.risks %}
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">Risques Identifiés</h5>
+            </div>
+            <div class="card-body">
+                <ul class="mb-0">
+                    {% for risk in analysis.risks %}
+                        <li class="mb-2 text-warning">{{ risk }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+{# Cadrage #}
+{% if cadrage %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">📐 Cadrage Architectural</h5>
+            </div>
+            <div class="card-body">
+                {% if cadrage.perimetre %}
+                    <h6 class="fw-bold">Périmètre</h6>
+                    <pre class="bg-light p-3 rounded">{{ cadrage.perimetre|json_encode(constant('JSON_PRETTY_PRINT')) }}</pre>
+                {% endif %}
+
+                {% if cadrage.architecture %}
+                    <h6 class="fw-bold mt-3">Architecture</h6>
+                    <pre class="bg-light p-3 rounded">{{ cadrage.architecture|json_encode(constant('JSON_PRETTY_PRINT')) }}</pre>
+                {% endif %}
+
+                {% if cadrage.swot %}
+                    <h6 class="fw-bold mt-3">Analyse SWOT</h6>
+                    <pre class="bg-light p-3 rounded">{{ cadrage.swot|json_encode(constant('JSON_PRETTY_PRINT')) }}</pre>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{# User Stories #}
+{% if userStories %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">📝 User Stories ({{ userStories.story_points ?? 0 }} points)</h5>
+            </div>
+            <div class="card-body">
+                {% if userStories.stories %}
+                    <pre class="bg-light p-3 rounded">{{ userStories.stories|json_encode(constant('JSON_PRETTY_PRINT')) }}</pre>
+                {% else %}
+                    <p class="text-muted">Aucune user story générée pour le moment.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{# Actions #}
+<div class="row">
+    <div class="col-12">
+        <a href="{{ path('app_dashboard') }}" class="btn btn-outline-secondary">
+            ← Retour au Dashboard
+        </a>
+    </div>
+</div>
+
+{% endblock %}
