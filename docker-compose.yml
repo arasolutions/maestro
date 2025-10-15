@@ -8,10 +8,12 @@ volumes:
   postgres_data:
   redis_data:
   n8n_data:
+  symfony_vendor:
+  symfony_var:
 
 services:
   # ======================
-  # BASE DE DONNÉES
+  # BASE DE DONNÉES (INCHANGÉ)
   # ======================
   postgres:
     image: 'postgres:15-alpine'
@@ -28,7 +30,7 @@ services:
       - './scripts/init:/docker-entrypoint-initdb.d:ro'
     networks:
       - coolify
-    ports:  # ✅ PORTS pour accès SGBD externe
+    ports:
       - '5432:5432'
     mem_limit: 1g
     mem_reservation: 512m
@@ -39,7 +41,7 @@ services:
       retries: 3
 
   # ======================
-  # CACHE REDIS
+  # CACHE REDIS (INCHANGÉ)
   # ======================
   redis:
     image: 'redis:7-alpine'
@@ -67,7 +69,7 @@ services:
       retries: 3
 
   # ======================
-  # ORCHESTRATEUR N8N - https://n8n.maestro.ara-solutions.cloud
+  # ORCHESTRATEUR N8N (INCHANGÉ)
   # ======================
   n8n:
     image: 'n8nio/n8n:latest'
@@ -78,10 +80,10 @@ services:
       N8N_BASIC_AUTH_USER: '${N8N_BASIC_AUTH_USER}'
       N8N_BASIC_AUTH_PASSWORD: '${N8N_BASIC_AUTH_PASSWORD}'
       N8N_ENCRYPTION_KEY: '${N8N_ENCRYPTION_KEY}'
-      N8N_HOST: 'n8n.maestro.ara-solutions.cloud'  # ✅ Sous-domaine n8n
+      N8N_HOST: 'n8n.maestro.ara-solutions.cloud'
       N8N_PORT: '5678'
       N8N_PROTOCOL: 'https'
-      WEBHOOK_URL: 'https://n8n.maestro.ara-solutions.cloud'  # ✅ URL webhook correcte
+      WEBHOOK_URL: 'https://n8n.maestro.ara-solutions.cloud'
       DB_TYPE: 'postgresdb'
       DB_POSTGRESDB_HOST: 'postgres'
       DB_POSTGRESDB_PORT: '5432'
@@ -109,7 +111,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-    labels:  # ✅ Labels pour n8n.maestro.ara-solutions.cloud
+    labels:
       - "traefik.enable=true"
       - "traefik.http.routers.n8n.rule=Host(`n8n.maestro.ara-solutions.cloud`)"
       - "traefik.http.routers.n8n.entrypoints=https"
@@ -118,118 +120,70 @@ services:
       - "traefik.http.services.n8n.loadbalancer.server.port=5678"
 
   # ======================
-  # API BACKEND - https://api.maestro.ara-solutions.cloud
+  # APPLICATION SYMFONY PHP 8.2
   # ======================
-  api:
-    image: 'node:18-alpine'
-    container_name: maestro-api
+  symfony:
+    image: 'dunglas/frankenphp:latest-php8.2'
+    container_name: maestro-symfony
     restart: unless-stopped
-    working_dir: /app
     environment:
-      NODE_ENV: 'production'
-      PORT: '3001'
-      DATABASE_URL: 'postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}'
+      SERVER_NAME: 'maestro.ara-solutions.cloud'
+      FRANKENPHP_CONFIG: |
+        {
+          order php_server before file_server
+        }
+        
+        maestro.ara-solutions.cloud {
+          root * /app/public
+          
+          php_server {
+            index index.php
+          }
+          
+          encode zstd gzip
+          file_server
+        }
+      
+      # Symfony environment
+      APP_ENV: '${APP_ENV:-prod}'
+      APP_SECRET: '${APP_SECRET}'
+      DATABASE_URL: 'postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?serverVersion=15&charset=utf8'
+      
+      # Redis for cache
       REDIS_URL: 'redis://:${REDIS_PASSWORD}@redis:6379'
-      GEMINI_API_KEY: '${GEMINI_API_KEY}'
+      
+      # n8n webhook
       N8N_WEBHOOK_URL: 'http://n8n:5678/webhook'
-      JWT_SECRET: '${JWT_SECRET}'
+      
+      # API Keys
+      GEMINI_API_KEY: '${GEMINI_API_KEY}'
+      
+      # PHP Configuration
+      PHP_MEMORY_LIMIT: '256M'
+      PHP_UPLOAD_MAX_FILESIZE: '32M'
+      PHP_POST_MAX_SIZE: '32M'
+      
     volumes:
-      - './api:/app'
+      - './symfony-app:/app'
+      - 'symfony_vendor:/app/vendor'
+      - 'symfony_var:/app/var'
     networks:
       - coolify
-    expose:
-      - 3001
-    mem_limit: 512m
-    mem_reservation: 256m
-    command: |
-      sh -c "
-        cd /app &&
-        if [ ! -f package.json ]; then
-          echo '{\"name\":\"maestro-api\",\"version\":\"1.0.0\",\"dependencies\":{\"express\":\"^4.18.2\",\"cors\":\"^2.8.5\",\"pg\":\"^8.11.3\"}}' > package.json
-        fi &&
-        if [ ! -f server.js ]; then
-          cat > server.js << 'EOJS'
-      const express = require('express');
-      const cors = require('cors');
-      const app = express();
-      app.use(cors());
-      app.use(express.json());
-      
-      app.get('/health', (req, res) => {
-        res.json({ status: 'healthy', service: 'MAESTRO API', version: '1.0.0', timestamp: new Date().toISOString() });
-      });
-      
-      app.get('/api/health', (req, res) => {
-        res.json({ status: 'ok', api: 'running', timestamp: new Date().toISOString() });
-      });
-      
-      app.get('/api/analyses', (req, res) => {
-        res.json([]);
-      });
-      
-      app.get('/api/stats', (req, res) => {
-        res.json({ projects: 1, analyses: 0, status: 'operational' });
-      });
-      
-      app.post('/api/request', (req, res) => {
-        console.log('New request:', req.body);
-        res.json({ success: true, message: 'Request received', id: Date.now().toString() });
-      });
-      
-      app.use((req, res) => {
-        res.status(404).json({ error: 'Route not found', path: req.path });
-      });
-      
-      const PORT = process.env.PORT || 3001;
-      app.listen(PORT, '0.0.0.0', () => {
-        console.log(\`MAESTRO API running on port \${PORT}\`);
-      });
-      EOJS
-        fi &&
-        npm install &&
-        node server.js
-      "
+    ports:
+      - '8080:80'
+      - '443:443'
+    mem_limit: 1g
+    mem_reservation: 512m
     depends_on:
       - postgres
       - redis
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3001/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    labels:  # ✅ Labels pour api.maestro.ara-solutions.cloud
-      - "traefik.enable=true"
-      - "traefik.http.routers.api.rule=Host(`api.maestro.ara-solutions.cloud`)"
-      - "traefik.http.routers.api.entrypoints=https"
-      - "traefik.http.routers.api.tls=true"
-      - "traefik.http.routers.api.tls.certresolver=letsencrypt"
-      - "traefik.http.services.api.loadbalancer.server.port=3001"
-
-  # ======================
-  # WEB FRONTEND - https://maestro.ara-solutions.cloud (port 8080)
-  # ======================
-  web:
-    image: 'nginx:alpine'
-    container_name: maestro-web
-    restart: unless-stopped
-    volumes:
-      - './interface:/usr/share/nginx/html:ro'
-      - './nginx/nginx.conf:/etc/nginx/nginx.conf:ro'
-    networks:
-      - coolify
-    ports:  # ✅ Port 8080 car 80 est pris
-      - '8080:80'
-    mem_limit: 128m
-    mem_reservation: 64m
-    depends_on:
-      - api
       - n8n
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost"]
+      test: ["CMD", "curl", "-f", "http://localhost/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-    labels:  # ✅ Labels pour maestro.ara-solutions.cloud
+    labels:
       - "traefik.enable=true"
       - "traefik.http.routers.maestro.rule=Host(`maestro.ara-solutions.cloud`)"
       - "traefik.http.routers.maestro.entrypoints=https"

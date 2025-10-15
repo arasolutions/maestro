@@ -1,0 +1,277 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Dashboard - MAESTRO{% endblock %}
+
+{% block body %}
+<div class="row mb-4">
+    <div class="col">
+        <h1 class="display-5 fw-bold text-primary">
+            <span style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                Tableau de Bord MAESTRO
+            </span>
+        </h1>
+        <p class="text-muted">Plateforme d'orchestration multi-agents IA</p>
+    </div>
+</div>
+
+{# Statistics Cards #}
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0">
+                        <div class="rounded-circle bg-primary bg-opacity-10 p-3">
+                            <svg width="24" height="24" fill="currentColor" class="text-primary">
+                                <use xlink:href="#icon-analyses"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <h6 class="text-muted mb-1">Total Analyses</h6>
+                        <h2 class="mb-0">{{ stats.total_analyses }}</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0">
+                        <div class="rounded-circle bg-success bg-opacity-10 p-3">
+                            <svg width="24" height="24" fill="currentColor" class="text-success">
+                                <use xlink:href="#icon-confidence"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <h6 class="text-muted mb-1">Confiance Moyenne</h6>
+                        <h2 class="mb-0">{{ (stats.average_confidence * 100)|round }}%</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0">
+                        <div class="rounded-circle bg-warning bg-opacity-10 p-3">
+                            <svg width="24" height="24" fill="currentColor" class="text-warning">
+                                <use xlink:href="#icon-hours"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <h6 class="text-muted mb-1">Heures Estimées</h6>
+                        <h2 class="mb-0">{{ stats.total_estimated_hours }}</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0">
+                        <div class="rounded-circle bg-info bg-opacity-10 p-3">
+                            <svg width="24" height="24" fill="currentColor" class="text-info">
+                                <use xlink:href="#icon-status"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <h6 class="text-muted mb-1">Agents Actifs</h6>
+                        <h2 class="mb-0">6</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Complexity Distribution Chart #}
+<div class="row g-4 mb-4">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 py-3">
+                <h5 class="mb-0">Distribution de Complexité</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="complexityChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 py-3">
+                <h5 class="mb-0">Distribution des Priorités</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="priorityChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Recent Analyses Table #}
+<div class="row">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 py-3">
+                <h5 class="mb-0">Analyses Récentes</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Requête</th>
+                                <th>Complexité</th>
+                                <th>Priorité</th>
+                                <th>Confiance</th>
+                                <th>Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for analysis in stats.recent_analyses %}
+                            <tr>
+                                <td>
+                                    <div class="text-truncate" style="max-width: 300px;">
+                                        {{ analysis.request_text }}
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-{{ analysis.complexity == 'XS' ? 'success' : (analysis.complexity == 'S' ? 'info' : (analysis.complexity == 'M' ? 'warning' : 'danger')) }}">
+                                        {{ analysis.complexity }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-{{ analysis.priority == 'CRITICAL' ? 'danger' : (analysis.priority == 'HIGH' ? 'warning' : 'info') }}">
+                                        {{ analysis.priority }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="progress" style="height: 20px; width: 100px;">
+                                        <div class="progress-bar bg-{{ analysis.confidence >= 0.8 ? 'success' : (analysis.confidence >= 0.6 ? 'info' : 'warning') }}"
+                                             role="progressbar"
+                                             style="width: {{ (analysis.confidence * 100)|round }}%"
+                                             aria-valuenow="{{ (analysis.confidence * 100)|round }}"
+                                             aria-valuemin="0"
+                                             aria-valuemax="100">
+                                            {{ (analysis.confidence * 100)|round }}%
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <small class="text-muted">
+                                        {{ analysis.created_at|date('d/m/Y H:i') }}
+                                    </small>
+                                </td>
+                                <td>
+                                    <a href="/analysis/{{ analysis.id }}" class="btn btn-sm btn-outline-primary">
+                                        Détails
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# SVG Icons #}
+<svg style="display: none;">
+    <symbol id="icon-analyses" viewBox="0 0 16 16">
+        <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+        <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+    </symbol>
+    <symbol id="icon-confidence" viewBox="0 0 16 16">
+        <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
+    </symbol>
+    <symbol id="icon-hours" viewBox="0 0 16 16">
+        <path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71V3.5z"/>
+        <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/>
+    </symbol>
+    <symbol id="icon-status" viewBox="0 0 16 16">
+        <path d="M11 6.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1z"/>
+        <path d="M2.5 0A1.5 1.5 0 0 0 1 1.5v7A1.5 1.5 0 0 0 2.5 10H8v5a.5.5 0 0 0 1 0v-5h5.5A1.5 1.5 0 0 0 16 8.5v-7A1.5 1.5 0 0 0 14.5 0h-12zM2 8.5V1.5A.5.5 0 0 1 2.5 1h12a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-.5.5h-12a.5.5 0 0 1-.5-.5z"/>
+    </symbol>
+</svg>
+
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script type="module">
+        import Chart from 'chart.js';
+
+        // Complexity Distribution Chart
+        const complexityCtx = document.getElementById('complexityChart');
+        new Chart(complexityCtx, {
+            type: 'doughnut',
+            data: {
+                labels: {{ stats.complexity_distribution|map(d => d.complexity)|json_encode|raw }},
+                datasets: [{
+                    data: {{ stats.complexity_distribution|map(d => d.count)|json_encode|raw }},
+                    backgroundColor: [
+                        'rgba(40, 167, 69, 0.8)',
+                        'rgba(23, 162, 184, 0.8)',
+                        'rgba(255, 193, 7, 0.8)',
+                        'rgba(255, 133, 27, 0.8)',
+                        'rgba(220, 53, 69, 0.8)'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+
+        // Priority Distribution Chart
+        const priorityCtx = document.getElementById('priorityChart');
+        new Chart(priorityCtx, {
+            type: 'bar',
+            data: {
+                labels: {{ stats.priority_distribution|map(d => d.priority)|json_encode|raw }},
+                datasets: [{
+                    label: 'Nombre',
+                    data: {{ stats.priority_distribution|map(d => d.count)|json_encode|raw }},
+                    backgroundColor: 'rgba(102, 126, 234, 0.8)'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    </script>
+{% endblock %}

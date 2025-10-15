@@ -1,0 +1,3 @@
+@echo off
+echo Starting Symfony development server...
+"C:\wamp64-v3\bin\php\php8.2.26\php.exe" -S localhost:8000 -t public

@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(composer create-project:*)",
+      "Bash(php:*)",
+      "Bash(\"C:\\wamp64-v3\\bin\\php\\php8.2.26\\php.exe\" -v)",
+      "Bash(\"C:\\wamp64-v3\\bin\\php\\php8.2.26\\php.exe\" bin/console cache:clear --env=prod --no-debug)",
+      "Bash(\"C:\\wamp64-v3\\bin\\php\\php8.2.26\\php.exe\" bin/console cache:clear)",
+      "Bash(\"C:\\wamp64-v3\\bin\\php\\php8.2.26\\php.exe\" bin/console debug:router)",
+      "Bash(\"C:\\wamp64-v3\\bin\\php\\php8.2.26\\php.exe\" bin/console cache:warmup --env=prod --no-debug)",
+      "Bash(\"C:\\wamp64-v3\\bin\\php\\php8.2.26\\php.exe\" \"C:\\ProgramData\\ComposerSetup\\bin\\composer.phar\" create-project symfony/skeleton:\"7.3.*\" symfony-app --no-interaction)",
+      "Bash(where composer)",
+      "Bash(\"C:\\wamp64-v3\\bin\\php\\php8.2.26\\php.exe\" \"C:\\composer\\composer\" create-project symfony/skeleton:\"7.3.*\" symfony-app --no-interaction)",
+      "Bash(\"C:\\wamp64-v3\\bin\\php\\php8.2.26\\php.exe\" \"C:\\composer\\composer.phar\" create-project symfony/skeleton:\"7.3.*\" symfony-app --no-interaction)",
+      "Bash(\"C:\\wamp64-v3\\bin\\php\\php8.2.26\\php.exe\" \"C:\\composer\\composer.phar\" require webapp --no-interaction)",
+      "Bash(\"C:\\wamp64-v3\\bin\\php\\php8.2.26\\php.exe\" bin/console doctrine:query:sql \"SELECT COUNT(*) as total FROM maestro.analyses\")",
+      "Bash(\"C:\\wamp64-v3\\bin\\php\\php8.2.26\\php.exe\" -m)",
+      "Bash(findstr:*)",
+      "Read(//c/wamp64-v3/bin/php/php8.2.26/**)",
+      "Bash(\"C:\\wamp64-v3\\bin\\php\\php8.2.26\\php.exe\" bin/console importmap:require bootstrap chart.js)",
+      "Bash(\"C:\\wamp64-v3\\bin\\php\\php8.2.26\\php.exe\" -S localhost:8000 -t public)",
+      "Bash(curl:*)",
+      "Bash(\"C:\\wamp64-v3\\bin\\php\\php8.2.26\\php.exe\" bin/console importmap:install)",
+      "Bash(\"C:\\wamp64-v3\\bin\\php\\php8.2.26\\php.exe\" bin/console debug:asset-map)",
+      "Bash(\"C:\\wamp64-v3\\bin\\php\\php8.2.26\\php.exe\" bin/console asset-map:compile)"
+    ],
+    "deny": [],
+    "ask": [],
+    "defaultMode": "acceptEdits"
+  }
+}
