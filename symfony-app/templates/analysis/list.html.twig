@@ -1,0 +1,189 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Analyses - {{ project.name }} - MAESTRO{% endblock %}
+
+{% block body %}
+<div class="row mb-4">
+    <div class="col">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="display-5 fw-bold text-primary">
+                    <span style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                        Analyses - {{ project.name }}
+                    </span>
+                </h1>
+                <p class="text-muted">{{ total }} analyse(s) trouvée(s)</p>
+            </div>
+            <div>
+                <a href="{{ path('app_request_new') }}" class="btn btn-primary">
+                    ➕ Nouvelle Analyse
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Filters #}
+<div class="row mb-4">
+    <div class="col">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <form method="get" action="{{ path('app_analyses_list') }}" class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Recherche</label>
+                        <input type="text"
+                               name="search"
+                               class="form-control"
+                               placeholder="Rechercher dans les requêtes..."
+                               value="{{ filters.search }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Complexité</label>
+                        <select name="complexity" class="form-select">
+                            <option value="">Toutes</option>
+                            <option value="XS" {{ filters.complexity == 'XS' ? 'selected' : '' }}>XS - Très Simple</option>
+                            <option value="S" {{ filters.complexity == 'S' ? 'selected' : '' }}>S - Simple</option>
+                            <option value="M" {{ filters.complexity == 'M' ? 'selected' : '' }}>M - Moyen</option>
+                            <option value="L" {{ filters.complexity == 'L' ? 'selected' : '' }}>L - Complexe</option>
+                            <option value="XL" {{ filters.complexity == 'XL' ? 'selected' : '' }}>XL - Très Complexe</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Priorité</label>
+                        <select name="priority" class="form-select">
+                            <option value="">Toutes</option>
+                            <option value="LOW" {{ filters.priority == 'LOW' ? 'selected' : '' }}>Basse</option>
+                            <option value="MEDIUM" {{ filters.priority == 'MEDIUM' ? 'selected' : '' }}>Moyenne</option>
+                            <option value="HIGH" {{ filters.priority == 'HIGH' ? 'selected' : '' }}>Haute</option>
+                            <option value="CRITICAL" {{ filters.priority == 'CRITICAL' ? 'selected' : '' }}>Critique</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100">Filtrer</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Analyses Table #}
+<div class="row">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                {% if analyses is empty %}
+                    <div class="text-center py-5">
+                        <svg width="64" height="64" fill="currentColor" class="text-muted mb-3">
+                            <use xlink:href="#icon-empty"/>
+                        </svg>
+                        <h5 class="text-muted">Aucune analyse trouvée</h5>
+                        <p class="text-muted">{{ filters.search or filters.complexity or filters.priority ? 'Essayez de modifier vos filtres' : 'Commencez par créer une nouvelle analyse' }}</p>
+                    </div>
+                {% else %}
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead>
+                                <tr>
+                                    <th style="width: 40%">Requête</th>
+                                    <th>Type</th>
+                                    <th>Complexité</th>
+                                    <th>Priorité</th>
+                                    <th>Confiance</th>
+                                    <th>Heures</th>
+                                    <th>Date</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for analysis in analyses %}
+                                <tr>
+                                    <td>
+                                        <div class="text-truncate" style="max-width: 400px;">
+                                            <strong>{{ analysis.request_text }}</strong>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{{ analysis.analysis_type == 'FEATURE' ? 'primary' : (analysis.analysis_type == 'BUG' ? 'danger' : 'info') }}">
+                                            {{ analysis.analysis_type }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{{ analysis.complexity == 'XS' ? 'success' : (analysis.complexity == 'S' ? 'info' : (analysis.complexity == 'M' ? 'warning' : (analysis.complexity == 'L' ? 'orange' : 'danger'))) }}">
+                                            {{ analysis.complexity }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{{ analysis.priority == 'CRITICAL' ? 'danger' : (analysis.priority == 'HIGH' ? 'warning' : (analysis.priority == 'MEDIUM' ? 'info' : 'secondary')) }}">
+                                            {{ analysis.priority }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="progress" style="height: 20px; width: 80px;">
+                                            <div class="progress-bar bg-{{ analysis.confidence >= 0.8 ? 'success' : (analysis.confidence >= 0.6 ? 'info' : 'warning') }}"
+                                                 role="progressbar"
+                                                 style="width: {{ (analysis.confidence * 100)|round }}%">
+                                                {{ (analysis.confidence * 100)|round }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-light text-dark">{{ analysis.estimated_hours }}h</span>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">
+                                            {{ analysis.created_at|date('d/m/Y H:i') }}
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <a href="{{ path('app_analysis_detail', {id: analysis.id}) }}"
+                                           class="btn btn-sm btn-outline-primary">
+                                            Détails
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {# Pagination #}
+                    {% if totalPages > 1 %}
+                        <nav aria-label="Page navigation" class="mt-4">
+                            <ul class="pagination justify-content-center">
+                                <li class="page-item {{ page <= 1 ? 'disabled' : '' }}">
+                                    <a class="page-link" href="{{ path('app_analyses_list', filters|merge({page: page - 1})) }}">Précédent</a>
+                                </li>
+
+                                {% for p in 1..totalPages %}
+                                    {% if p == 1 or p == totalPages or (p >= page - 2 and p <= page + 2) %}
+                                        <li class="page-item {{ p == page ? 'active' : '' }}">
+                                            <a class="page-link" href="{{ path('app_analyses_list', filters|merge({page: p})) }}">{{ p }}</a>
+                                        </li>
+                                    {% elseif p == page - 3 or p == page + 3 %}
+                                        <li class="page-item disabled">
+                                            <span class="page-link">...</span>
+                                        </li>
+                                    {% endif %}
+                                {% endfor %}
+
+                                <li class="page-item {{ page >= totalPages ? 'disabled' : '' }}">
+                                    <a class="page-link" href="{{ path('app_analyses_list', filters|merge({page: page + 1})) }}">Suivant</a>
+                                </li>
+                            </ul>
+                        </nav>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{# SVG Icons #}
+<svg style="display: none;">
+    <symbol id="icon-empty" viewBox="0 0 16 16">
+        <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
+    </symbol>
+</svg>
+
+{% endblock %}

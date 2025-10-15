@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use Doctrine\DBAL\Connection;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Uid\Uuid;
@@ -13,6 +14,81 @@ class AnalysisController extends AbstractController
     public function __construct(
         private readonly Connection $connection
     ) {
+    }
+
+    #[Route('/analyses', name: 'app_analyses_list')]
+    public function list(Request $request): Response
+    {
+        $currentProjectSlug = $request->getSession()->get('current_project_slug');
+
+        if (!$currentProjectSlug) {
+            $this->addFlash('warning', 'Veuillez d\'abord sélectionner un projet');
+            return $this->redirectToRoute('app_home');
+        }
+
+        // Pagination parameters
+        $page = max(1, $request->query->getInt('page', 1));
+        $limit = 20;
+        $offset = ($page - 1) * $limit;
+
+        // Filters
+        $complexity = $request->query->get('complexity');
+        $priority = $request->query->get('priority');
+        $search = $request->query->get('search');
+
+        // Build query
+        $sql = "SELECT * FROM maestro.analyses WHERE full_response->>'project_slug' = :slug";
+        $params = ['slug' => $currentProjectSlug];
+
+        if ($complexity) {
+            $sql .= " AND complexity = :complexity";
+            $params['complexity'] = $complexity;
+        }
+
+        if ($priority) {
+            $sql .= " AND priority = :priority";
+            $params['priority'] = $priority;
+        }
+
+        if ($search) {
+            $sql .= " AND request_text ILIKE :search";
+            $params['search'] = '%' . $search . '%';
+        }
+
+        // Count total
+        $countSql = "SELECT COUNT(*) FROM maestro.analyses WHERE full_response->>'project_slug' = :slug";
+        if ($complexity) $countSql .= " AND complexity = :complexity";
+        if ($priority) $countSql .= " AND priority = :priority";
+        if ($search) $countSql .= " AND request_text ILIKE :search";
+
+        $total = (int) $this->connection->fetchOne($countSql, $params);
+
+        // Get analyses with pagination
+        $sql .= " ORDER BY created_at DESC LIMIT :limit OFFSET :offset";
+        $params['limit'] = $limit;
+        $params['offset'] = $offset;
+
+        $analyses = $this->connection->fetchAllAssociative($sql, $params);
+
+        // Get project info
+        $project = $this->connection->fetchAssociative(
+            'SELECT * FROM maestro.projects WHERE slug = :slug',
+            ['slug' => $currentProjectSlug]
+        );
+
+        return $this->render('analysis/list.html.twig', [
+            'analyses' => $analyses,
+            'project' => $project,
+            'total' => $total,
+            'page' => $page,
+            'limit' => $limit,
+            'totalPages' => ceil($total / $limit),
+            'filters' => [
+                'complexity' => $complexity,
+                'priority' => $priority,
+                'search' => $search,
+            ],
+        ]);
     }
 
     #[Route('/analysis/{id}', name: 'app_analysis_detail')]

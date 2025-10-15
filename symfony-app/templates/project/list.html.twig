@@ -1,0 +1,76 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Gestion des Projets - MAESTRO{% endblock %}
+
+{% block body %}
+<div class="row mb-4">
+    <div class="col">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="display-6 fw-bold">Gestion des Projets</h1>
+                <p class="text-muted">Créer, modifier et supprimer des projets</p>
+            </div>
+            <div>
+                <a href="{{ path('app_home') }}" class="btn btn-outline-secondary me-2">← Retour</a>
+                <a href="{{ path('app_project_new') }}" class="btn btn-primary">➕ Nouveau Projet</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                {% if projects|length == 0 %}
+                    <div class="text-center py-5">
+                        <p class="text-muted">Aucun projet créé</p>
+                        <a href="{{ path('app_project_new') }}" class="btn btn-primary">Créer le premier projet</a>
+                    </div>
+                {% else %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Nom</th>
+                                    <th>Slug</th>
+                                    <th>Description</th>
+                                    <th>Analyses</th>
+                                    <th>Date création</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for project in projects %}
+                                <tr>
+                                    <td><strong>{{ project.name }}</strong></td>
+                                    <td><code>{{ project.slug }}</code></td>
+                                    <td>{{ project.description|default('—')|slice(0, 50) }}{% if project.description|length > 50 %}...{% endif %}</td>
+                                    <td><span class="badge bg-primary">{{ project.analyses_count }}</span></td>
+                                    <td>{{ project.created_at|date('d/m/Y') }}</td>
+                                    <td>
+                                        <a href="{{ path('app_project_dashboard', {slug: project.slug}) }}" class="btn btn-sm btn-outline-primary" title="Ouvrir">
+                                            📊
+                                        </a>
+                                        <a href="{{ path('app_project_edit', {slug: project.slug}) }}" class="btn btn-sm btn-outline-secondary" title="Éditer">
+                                            ✏️
+                                        </a>
+                                        <button type="button" class="btn btn-sm btn-outline-danger" title="Supprimer"
+                                                onclick="if(confirm('Êtes-vous sûr de vouloir supprimer ce projet ?')) { document.getElementById('delete-form-{{ project.slug }}').submit(); }">
+                                            🗑️
+                                        </button>
+                                        <form id="delete-form-{{ project.slug }}" action="{{ path('app_project_delete', {slug: project.slug}) }}" method="post" style="display: none;">
+                                            <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ project.slug) }}">
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

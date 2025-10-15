@@ -11,27 +11,50 @@
 <body class="bg-light">
     <nav class="navbar navbar-expand-lg navbar-dark" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
         <div class="container-fluid">
-            <a class="navbar-brand fw-bold text-white" href="{{ path('app_dashboard') }}">
+            <a class="navbar-brand fw-bold text-white" href="{{ path('app_home') }}">
                 🎯 MAESTRO
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link text-white" href="{{ path('app_dashboard') }}">Dashboard</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link text-white" href="/analyses">Analyses</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link text-white" href="/projects">Projets</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link text-white" href="/request/new">Nouvelle Requête</a>
-                    </li>
-                </ul>
+                {% if app.session.get('current_project_slug') %}
+                    {# Projet sélectionné - afficher le menu complet #}
+                    <ul class="navbar-nav me-auto">
+                        <li class="nav-item">
+                            <span class="nav-link text-white-50">
+                                📁 {{ app.session.get('current_project_name') }}
+                            </span>
+                        </li>
+                    </ul>
+                    <ul class="navbar-nav ms-auto">
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="{{ path('app_project_dashboard', {slug: app.session.get('current_project_slug')}) }}">Dashboard</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="{{ path('app_analyses_list') }}">Analyses</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="{{ path('app_request_new') }}">➕ Nouvelle Requête</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="{{ path('app_projects_list') }}">⚙️ Projets</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="{{ path('app_home') }}">🔄 Changer</a>
+                        </li>
+                    </ul>
+                {% else %}
+                    {# Aucun projet sélectionné - menu minimal #}
+                    <ul class="navbar-nav ms-auto">
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="{{ path('app_home') }}">Projets</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="{{ path('app_projects_list') }}">⚙️ Gestion</a>
+                        </li>
+                    </ul>
+                {% endif %}
             </div>
         </div>
     </nav>
