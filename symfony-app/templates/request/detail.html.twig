@@ -1,0 +1,154 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Requête #{{ request.id[:8] }} - MAESTRO{% endblock %}
+
+{% block body %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ path('app_home') }}">Accueil</a></li>
+                    {% if request.project_slug %}
+                        <li class="breadcrumb-item"><a href="{{ path('app_project_dashboard', {slug: request.project_slug}) }}">{{ request.project_name }}</a></li>
+                    {% endif %}
+                    <li class="breadcrumb-item active">Requête #{{ request.id[:8] }}</li>
+                </ol>
+            </nav>
+
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3">
+                    <i class="bi bi-file-text"></i> Détail de la requête
+                </h1>
+                {% if request.status == 'COMPLETED' and analysis %}
+                    <a href="{{ path('app_analysis_detail', {id: analysis.id}) }}" class="btn btn-primary">
+                        <i class="bi bi-bar-chart"></i> Voir l'analyse
+                    </a>
+                {% endif %}
+            </div>
+
+            {# Status Card #}
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-3">
+                            <h5 class="card-title mb-0">Statut</h5>
+                        </div>
+                        <div class="col-md-9">
+                            {% if request.status == 'PENDING' %}
+                                <span class="badge bg-warning text-dark fs-6">
+                                    <i class="bi bi-clock"></i> En attente
+                                </span>
+                                <p class="text-muted mt-2 mb-0">La requête est en file d'attente</p>
+                            {% elseif request.status == 'PROCESSING' %}
+                                <span class="badge bg-info fs-6">
+                                    <i class="bi bi-cpu"></i> En cours de traitement
+                                </span>
+                                <p class="text-muted mt-2 mb-0">
+                                    Les agents IA analysent votre requête...
+                                    <span class="spinner-border spinner-border-sm ms-2" role="status"></span>
+                                </p>
+                            {% elseif request.status == 'COMPLETED' %}
+                                <span class="badge bg-success fs-6">
+                                    <i class="bi bi-check-circle"></i> Terminée
+                                </span>
+                                <p class="text-muted mt-2 mb-0">L'analyse est disponible</p>
+                            {% elseif request.status == 'FAILED' %}
+                                <span class="badge bg-danger fs-6">
+                                    <i class="bi bi-x-circle"></i> Échec
+                                </span>
+                                {% if request.error_message %}
+                                    <div class="alert alert-danger mt-2 mb-0">
+                                        <strong>Erreur:</strong> {{ request.error_message }}
+                                    </div>
+                                {% endif %}
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {# Request Details #}
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="bi bi-info-circle"></i> Informations de la requête</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-3"><strong>ID:</strong></div>
+                        <div class="col-md-9"><code>{{ request.id }}</code></div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-3"><strong>Projet:</strong></div>
+                        <div class="col-md-9">{{ request.project_name|default('N/A') }}</div>
+                    </div>
+                    {% if request.request_type %}
+                    <div class="row mb-3">
+                        <div class="col-md-3"><strong>Type:</strong></div>
+                        <div class="col-md-9">
+                            <span class="badge bg-secondary">{{ request.request_type }}</span>
+                            <small class="text-muted ms-2">(déterminé par l'orchestrator)</small>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% if request.priority %}
+                    <div class="row mb-3">
+                        <div class="col-md-3"><strong>Priorité:</strong></div>
+                        <div class="col-md-9">
+                            {% if request.priority == 'CRITICAL' %}
+                                <span class="badge bg-danger">Critique</span>
+                            {% elseif request.priority == 'HIGH' %}
+                                <span class="badge bg-warning text-dark">Haute</span>
+                            {% elseif request.priority == 'MEDIUM' %}
+                                <span class="badge bg-info">Moyenne</span>
+                            {% elseif request.priority == 'LOW' %}
+                                <span class="badge bg-secondary">Basse</span>
+                            {% endif %}
+                            <small class="text-muted ms-2">(déterminée par l'orchestrator)</small>
+                        </div>
+                    </div>
+                    {% endif %}
+                    <div class="row mb-3">
+                        <div class="col-md-3"><strong>Créée le:</strong></div>
+                        <div class="col-md-9">{{ request.created_at|date('d/m/Y à H:i:s') }}</div>
+                    </div>
+                    {% if request.updated_at %}
+                    <div class="row mb-3">
+                        <div class="col-md-3"><strong>Mise à jour:</strong></div>
+                        <div class="col-md-9">{{ request.updated_at|date('d/m/Y à H:i:s') }}</div>
+                    </div>
+                    {% endif %}
+                    {% if request.webhook_execution_id %}
+                    <div class="row mb-3">
+                        <div class="col-md-3"><strong>Execution ID:</strong></div>
+                        <div class="col-md-9"><code>{{ request.webhook_execution_id }}</code></div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            {# Request Content #}
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="bi bi-file-text"></i> Contenu de la requête</h5>
+                </div>
+                <div class="card-body">
+                    <pre class="bg-light p-3 rounded">{{ request.request_text }}</pre>
+                </div>
+            </div>
+
+            {# Auto-refresh for processing status #}
+            {% if request.status in ['PENDING', 'PROCESSING'] %}
+            <div class="alert alert-info">
+                <i class="bi bi-arrow-clockwise"></i> Cette page se rafraîchit automatiquement toutes les 5 secondes...
+            </div>
+            <script>
+                setTimeout(function() {
+                    location.reload();
+                }, 5000);
+            </script>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

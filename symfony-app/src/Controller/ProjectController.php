@@ -266,6 +266,32 @@ class ProjectController extends AbstractController
             ['projectId' => $projectId]
         );
 
+        // Total requests et stats par statut
+        $requestsStats = $this->connection->fetchAllAssociative(
+            "SELECT status, COUNT(*) as count
+            FROM maestro.requests
+            WHERE project_id = :projectId
+            GROUP BY status",
+            ['projectId' => $projectId]
+        );
+
+        $totalRequests = (int) $this->connection->fetchOne(
+            "SELECT COUNT(*)
+            FROM maestro.requests
+            WHERE project_id = :projectId",
+            ['projectId' => $projectId]
+        );
+
+        // Récupérer les requêtes récentes (toutes statuts confondus)
+        $recentRequests = $this->connection->fetchAllAssociative(
+            "SELECT id, request_text, request_type, priority, status, created_at, updated_at
+            FROM maestro.requests
+            WHERE project_id = :projectId
+            ORDER BY created_at DESC
+            LIMIT 10",
+            ['projectId' => $projectId]
+        );
+
         // Confiance moyenne
         $avgConfidence = (float) $this->connection->fetchOne(
             "SELECT AVG(confidence)
@@ -348,6 +374,9 @@ class ProjectController extends AbstractController
 
         return [
             'total_analyses' => $totalAnalyses,
+            'total_requests' => $totalRequests,
+            'requests_stats' => $requestsStats,
+            'recent_requests' => $recentRequests,
             'average_confidence' => round($avgConfidence, 2),
             'complexity_distribution' => $complexityDistribution,
             'priority_distribution' => $priorityDistribution,
@@ -366,6 +395,9 @@ class ProjectController extends AbstractController
     {
         return [
             'total_analyses' => 0,
+            'total_requests' => 0,
+            'requests_stats' => [],
+            'recent_requests' => [],
             'average_confidence' => 0,
             'complexity_distribution' => [],
             'priority_distribution' => [],

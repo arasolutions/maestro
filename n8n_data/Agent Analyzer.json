@@ -1,0 +1,187 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "analyze",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -384,
+        16
+      ],
+      "id": "f5bcf0b1-1703-4f4a-b2a7-d9d9450bd0fe",
+      "name": "Webhook",
+      "webhookId": "edb563cf-9343-422a-aa14-9b2d75b7a0b6"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=AIzaSyCh8UXpXbf_E-NtkJC5QbMmbUpRw2zKN1M",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": \"Tu es MAESTRO, analyseur et concepteur IA expert en gestion de projet.\\n\\nContexte: Un utilisateur soumet une demande pour un nouveau projet ou une modification.\\n\\nDemande à analyser: {{$json.request}}\\n\\nInstructions:\\n1. Type = FEATURE si création/ajout, BUG si correction d'erreur, ENHANCEMENT si amélioration\\n2. Complexity: XS (<8h), S (8-24h), M (1-5j), L (5-20j), XL (>20j)\\n3. Priority basée sur l'impact business\\n4. Agents: PM (gestion), CADRAGE (architecture), US (specs), DEV (code), TEST (QA), DEPLOY (mise en prod)\\n\\nRéponds UNIQUEMENT avec ce JSON (sans markdown):\\n{\\n  \\\"analysis\\\": {\\n    \\\"type\\\": \\\"FEATURE ou BUG ou ENHANCEMENT\\\",\\n    \\\"complexity\\\": \\\"XS ou S ou M ou L ou XL\\\",\\n    \\\"priority\\\": \\\"CRITICAL ou HIGH ou MEDIUM ou LOW\\\",\\n    \\\"confidence\\\": 0.0 à 1.0\\n  },\\n  \\\"orchestration\\\": {\\n    \\\"agents_needed\\\": [liste des agents],\\n    \\\"estimated_hours\\\": nombre total d'heures,\\n    \\\"parallel_possible\\\": true ou false\\n  },\\n  \\\"next_steps\\\": [3 prochaines actions concrètes],\\n  \\\"risks\\\": [2-3 risques principaux]\\n}\"\n    }]\n  }],\n  \"generationConfig\": {\n    \"temperature\": 0.7,\n    \"topK\": 40,\n    \"topP\": 0.95,\n    \"maxOutputTokens\": 1024,\n    \"responseMimeType\": \"application/json\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -64,
+        16
+      ],
+      "id": "c5e3fcb4-4b6c-4057-b1e1-f51f332a12a1",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Préparer les paramètres pour PostgreSQL\nconst item = $input.first().json;\n\nconsole.log(\"=== PRÉPARATION PARAMÈTRES ===\");\n\nlet originalRequest = $('Keep Request').first().json.request_original;\nlet projectId = $('Keep Request').first().json.project_id;\nlet requestId = $('Keep Request').first().json.request_id;\n\n// Extraire l'analyse depuis Gemini\nlet analysis = {};\nif (item.candidates && item.candidates[0]?.content?.parts[0]?.text) {\n  try {\n    const textContent = item.candidates[0].content.parts[0].text;\n    analysis = JSON.parse(textContent);\n    console.log(\"✅ Analyse parsée depuis Gemini\");\n  } catch(e) {\n    console.error(\"❌ Erreur parsing Gemini:\", e.message);\n    analysis = {\n      analysis: { type: \"FEATURE\", complexity: \"M\", priority: \"HIGH\", confidence: 0.8 },\n      orchestration: { agents_needed: [\"PM\"], estimated_hours: 8, parallel_possible: false },\n      next_steps: [\"Debug needed\"],\n      risks: [\"Parse error\"]\n    };\n  }\n}\n\n// Dans la préparation des params, remplacez :\nconst params = [\n  originalRequest,\n  analysis.analysis?.type || \"UNKNOWN\",                 \n  analysis.analysis?.complexity || \"M\",                 \n  analysis.analysis?.priority || \"MEDIUM\",              \n  Number(analysis.analysis?.confidence) || 0.5,         \n  JSON.stringify(analysis.orchestration?.agents_needed || [\"PM\"]), // Stringify\n  Number(analysis.orchestration?.estimated_hours) || 8, \n  Boolean(analysis.orchestration?.parallel_possible),   \n  JSON.stringify(analysis.next_steps || [\"Analysis required\"]),    // Stringify\n  JSON.stringify(analysis.risks || [\"Unknown risks\"]),            // Stringify\n  JSON.stringify(analysis),                                       // Stringify\n  $execution?.id || \"unknown\",\n  projectId,\n  requestId\n];\n\nconsole.log(\"✅ Paramètres préparés pour PostgreSQL\");\n\nreturn [{ \n  json: {\n    params: params,\n    request_text: originalRequest,\n    analysis_type: analysis.analysis?.type,\n    complexity: analysis.analysis?.complexity,\n    confidence: analysis.analysis?.confidence\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        96,
+        16
+      ],
+      "id": "1a6ceccc-5a97-4d68-8c5b-bfe9c1627c46",
+      "name": "Prepare DB Data"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO maestro.analyses (\n  request_text, analysis_type, complexity, priority, confidence,\n  agents_needed, estimated_hours, parallel_possible, next_steps,\n  risks, full_response, webhook_execution_id, project_id, request_id\n) VALUES (\n  $1, $2, $3, $4, $5,\n  $6::jsonb,           -- Cast explicit en jsonb\n  $7, $8,\n  $9::jsonb,           -- Cast explicit en jsonb  \n  $10::jsonb,          -- Cast explicit en jsonb\n  $11::jsonb,          -- Cast explicit en jsonb\n  $12, $13, $14\n) RETURNING id, created_at;",
+        "options": {
+          "queryReplacement": "={{ $json.params }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        304,
+        16
+      ],
+      "id": "80174172-6888-4352-9048-7290eaa5929a",
+      "name": "Postgre",
+      "credentials": {
+        "postgres": {
+          "id": "LZQHq6vDOsI91G4D",
+          "name": "MAESTRO DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "9cee52c0-9c26-4031-9a98-a22804659ad6",
+              "name": "request_original",
+              "value": "={{ $json.body.request }}",
+              "type": "string"
+            },
+            {
+              "id": "e54ffc09-ac7f-4ede-8f80-15de476ed5ef",
+              "name": "=project_id",
+              "value": "={{ $json.body.project_id }}",
+              "type": "string"
+            },
+            {
+              "id": "4d8c6f6f-1630-4a51-954a-fcff33412c72",
+              "name": "request_id",
+              "value": "={{ $json.body.request_id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -224,
+        16
+      ],
+      "id": "065326d5-0d54-4c78-bc67-0b12e02fdeaf",
+      "name": "Keep Request"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"success\", \n  \"message\": \"Analyse sauvegardée avec ID {{ $json.id }}\",\n  \"request\": \"{{ $('Keep Request').item.json.request_original }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        544,
+        16
+      ],
+      "id": "0ec10c55-a0cd-460a-861c-30ab8fe3dc94",
+      "name": "Respond to Webhook1"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Keep Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Prepare DB Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare DB Data": {
+      "main": [
+        [
+          {
+            "node": "Postgre",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgre": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Keep Request": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ed02db89d7f2488035bfec7b1491988dab1d203f160701f703954ad6afe22be8"
+  }
+}

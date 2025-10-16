@@ -14,63 +14,43 @@
             </div>
             <div class="card-body">
                 <p class="text-muted mb-4">
-                    Décrivez votre besoin ci-dessous. Les agents IA MAESTRO (PM, Cadrage, US, Dev, Test, Deploy)
-                    vont analyser votre requête et vous fournir une estimation complète.
+                    Décrivez simplement votre besoin ci-dessous. L'agent Analyzer MAESTRO analysera automatiquement
+                    votre demande pour déterminer le type, la priorité, la complexité et les agents appropriés à mobiliser.
                 </p>
 
-                <form method="post">
-                    <div class="mb-4">
-                        <label for="title" class="form-label fw-bold">Titre de la requête *</label>
-                        <input type="text" class="form-control form-control-lg" id="title" name="title"
-                               value="{{ title|default('') }}" required
-                               placeholder="Ex: Créer une API REST pour la gestion des utilisateurs">
-                        <small class="form-text text-muted">Un titre court et descriptif</small>
-                    </div>
+                <form method="post" data-turbo="false">
+                    <input type="hidden" name="_token" value="{{ csrf_token('request_form') }}">
 
                     <div class="mb-4">
-                        <label for="description" class="form-label fw-bold">Description détaillée *</label>
-                        <textarea class="form-control" id="description" name="description" rows="8" required
-                                  placeholder="Décrivez en détail votre besoin :&#10;- Fonctionnalités attendues&#10;- Contraintes techniques&#10;- Cas d'usage&#10;- Technologies préférées&#10;- Etc.">{{ description|default('') }}</textarea>
-                        <small class="form-text text-muted">Plus la description est détaillée, plus l'analyse sera précise</small>
+                        <label for="description" class="form-label fw-bold">Décrivez votre besoin *</label>
+                        <textarea class="form-control form-control-lg" id="description" name="description" rows="12"
+                                  placeholder="Décrivez librement votre besoin...&#10;&#10;Exemples :&#10;- Je veux créer une API REST pour gérer les utilisateurs avec authentification JWT&#10;- Il y a un bug dans le module de paiement qui ne valide pas les cartes Visa&#10;- J'ai besoin d'améliorer les performances de la page d'accueil&#10;- Nous devons refactoriser le code legacy du module de facturation&#10;&#10;L'IA analysera automatiquement :&#10;✓ Le type de demande (feature, bug, amélioration...)&#10;✓ La priorité (basse, moyenne, haute, critique)&#10;✓ La complexité (XS, S, M, L, XL)&#10;✓ Les agents nécessaires (PM, Cadrage, US, Dev, Test, Deploy)">{{ description|default('') }}</textarea>
+                        <small class="form-text text-muted">
+                            💡 <strong>Astuce :</strong> Plus votre description est détaillée (fonctionnalités, contraintes, contexte),
+                            plus l'analyse de l'agent Analyzer sera précise et pertinente.
+                        </small>
                     </div>
 
-                    <div class="row mb-4">
-                        <div class="col-md-6">
-                            <label for="type" class="form-label fw-bold">Type de requête</label>
-                            <select class="form-select" id="type" name="type">
-                                <option value="FEATURE" {{ type|default('') == 'FEATURE' ? 'selected' : '' }}>✨ Nouvelle fonctionnalité</option>
-                                <option value="BUG" {{ type|default('') == 'BUG' ? 'selected' : '' }}>🐛 Correction de bug</option>
-                                <option value="ENHANCEMENT" {{ type|default('') == 'ENHANCEMENT' ? 'selected' : '' }}>⚡ Amélioration</option>
-                                <option value="REFACTORING" {{ type|default('') == 'REFACTORING' ? 'selected' : '' }}>🔄 Refactoring</option>
-                                <option value="DOCUMENTATION" {{ type|default('') == 'DOCUMENTATION' ? 'selected' : '' }}>📚 Documentation</option>
-                            </select>
+                    <div class="alert alert-info border-0">
+                        <div class="d-flex align-items-start">
+                            <div class="me-3 fs-4">🤖</div>
+                            <div>
+                                <strong>Intelligence artificielle au travail</strong><br>
+                                <small>
+                                    1. L'<strong>agent Analyzer</strong> analyse votre demande brute<br>
+                                    2. Il détermine automatiquement type, priorité et complexité<br>
+                                    3. Il identifie les agents appropriés à mobiliser (PM → Cadrage → US → Dev...)<br>
+                                    4. Vous recevez une analyse complète avec estimation précise
+                                </small>
+                            </div>
                         </div>
-
-                        <div class="col-md-6">
-                            <label for="priority" class="form-label fw-bold">Priorité</label>
-                            <select class="form-select" id="priority" name="priority">
-                                <option value="LOW" {{ priority|default('') == 'LOW' ? 'selected' : '' }}>🟢 Basse</option>
-                                <option value="MEDIUM" {{ priority|default('MEDIUM') == 'MEDIUM' ? 'selected' : '' }}>🔵 Moyenne</option>
-                                <option value="HIGH" {{ priority|default('') == 'HIGH' ? 'selected' : '' }}>🟡 Haute</option>
-                                <option value="CRITICAL" {{ priority|default('') == 'CRITICAL' ? 'selected' : '' }}>🔴 Critique</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="alert alert-info">
-                        <strong>ℹ️ Comment ça marche ?</strong><br>
-                        1. Votre requête est envoyée au workflow n8n<br>
-                        2. L'agent PM analyse et évalue la complexité<br>
-                        3. L'agent Cadrage définit l'architecture<br>
-                        4. L'agent US génère les user stories<br>
-                        5. Vous recevez une estimation complète !
                     </div>
 
                     <div class="d-flex justify-content-between align-items-center">
                         <a href="{{ path('app_project_dashboard', {slug: app.session.get('current_project_slug')}) }}" class="btn btn-outline-secondary">
                             ← Annuler
                         </a>
-                        <button type="submit" class="btn btn-primary btn-lg">
+                        <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
                             🚀 Lancer l'Analyse
                         </button>
                     </div>
@@ -79,4 +59,18 @@
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form');
+    const submitBtn = document.getElementById('submitBtn');
+
+    form.addEventListener('submit', function(e) {
+        console.log('Form submit event triggered');
+        console.log('Description value:', document.getElementById('description').value);
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '⏳ Envoi en cours...';
+    });
+});
+</script>
 {% endblock %}

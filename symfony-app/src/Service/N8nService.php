@@ -15,10 +15,10 @@ class N8nService
     }
 
     /**
-     * Trigger n8n orchestration workflow
+     * Trigger n8n analyzer agent workflow
      *
      * @param string $request The request text to analyze
-     * @param array $metadata Additional metadata (type, priority, etc.)
+     * @param array $metadata Additional metadata (request_id, project_id, etc.)
      * @return array Response from n8n webhook
      * @throws \Exception If the webhook call fails
      */
@@ -31,12 +31,14 @@ class N8nService
                 ...$metadata
             ];
 
-            $this->logger->info('Triggering n8n orchestration', [
-                'url' => $this->n8nWebhookUrl . '/orchestrate',
+            $webhookUrl = $this->n8nWebhookUrl . '/analyze';
+
+            $this->logger->info('Triggering n8n analyzer agent', [
+                'url' => $webhookUrl,
                 'request' => substr($request, 0, 100) // Log first 100 chars
             ]);
 
-            $response = $this->httpClient->request('POST', $this->n8nWebhookUrl . '/orchestrate', [
+            $response = $this->httpClient->request('POST', $webhookUrl, [
                 'json' => $payload,
                 'timeout' => 30,
                 'headers' => [
@@ -47,7 +49,7 @@ class N8nService
             $statusCode = $response->getStatusCode();
             $content = $response->toArray();
 
-            $this->logger->info('n8n orchestration triggered successfully', [
+            $this->logger->info('n8n analyzer agent triggered successfully', [
                 'status_code' => $statusCode,
                 'has_response' => !empty($content)
             ]);
@@ -55,12 +57,12 @@ class N8nService
             return $content;
 
         } catch (\Exception $e) {
-            $this->logger->error('Failed to trigger n8n orchestration', [
+            $this->logger->error('Failed to trigger n8n analyzer agent', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
 
-            throw new \Exception('Failed to trigger n8n orchestration: ' . $e->getMessage(), 0, $e);
+            throw new \Exception('Failed to trigger n8n analyzer agent: ' . $e->getMessage(), 0, $e);
         }
     }
 

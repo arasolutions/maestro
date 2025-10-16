@@ -54,6 +54,13 @@ class Analysis
     #[ORM\JoinColumn(name: 'project_id', referencedColumnName: 'id', onDelete: 'CASCADE')]
     private ?Project $project = null;
 
+    #[ORM\Column(type: 'uuid', name: 'request_id', nullable: true)]
+    private ?Uuid $requestId = null;
+
+    #[ORM\OneToOne(targetEntity: Request::class, inversedBy: 'analysis')]
+    #[ORM\JoinColumn(name: 'request_id', referencedColumnName: 'id', onDelete: 'CASCADE')]
+    private ?Request $request = null;
+
     #[ORM\Column(type: Types::DATETIME_MUTABLE, name: 'created_at')]
     private ?\DateTimeInterface $createdAt = null;
 
@@ -221,6 +228,31 @@ class Analysis
         $this->project = $project;
         if ($project !== null) {
             $this->projectId = $project->getId();
+        }
+        return $this;
+    }
+
+    public function getRequestId(): ?Uuid
+    {
+        return $this->requestId;
+    }
+
+    public function setRequestId(?Uuid $requestId): static
+    {
+        $this->requestId = $requestId;
+        return $this;
+    }
+
+    public function getRequest(): ?Request
+    {
+        return $this->request;
+    }
+
+    public function setRequest(?Request $request): static
+    {
+        $this->request = $request;
+        if ($request !== null) {
+            $this->requestId = $request->getId();
         }
         return $this;
     }

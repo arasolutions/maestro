@@ -135,7 +135,112 @@
     </div>
 </div>
 
+{# Recent Requests Table #}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 py-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 text-dark">Requêtes Récentes</h5>
+                    {% if stats.requests_stats is not empty %}
+                        <div class="d-flex gap-2">
+                            {% for stat in stats.requests_stats %}
+                                <span class="badge bg-{{ stat.status == 'PENDING' ? 'warning' : (stat.status == 'PROCESSING' ? 'info' : (stat.status == 'COMPLETED' ? 'success' : 'danger')) }}">
+                                    {{ stat.status }}: {{ stat.count }}
+                                </span>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Requête</th>
+                                <th>Type</th>
+                                <th>Priorité</th>
+                                <th>Statut</th>
+                                <th>Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if stats.recent_requests is empty %}
+                            <tr>
+                                <td colspan="6" class="text-center text-muted py-4">
+                                    Aucune requête pour le moment
+                                </td>
+                            </tr>
+                            {% else %}
+                                {% for request in stats.recent_requests %}
+                                <tr>
+                                    <td>
+                                        <div class="text-truncate" style="max-width: 300px;">
+                                            {{ request.request_text }}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">
+                                            {{ request.request_type|default('N/A') }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if request.priority == 'CRITICAL' %}
+                                            <span class="badge bg-danger">Critique</span>
+                                        {% elseif request.priority == 'HIGH' %}
+                                            <span class="badge bg-warning text-dark">Haute</span>
+                                        {% elseif request.priority == 'MEDIUM' %}
+                                            <span class="badge bg-info">Moyenne</span>
+                                        {% elseif request.priority == 'LOW' %}
+                                            <span class="badge bg-secondary">Basse</span>
+                                        {% else %}
+                                            <span class="badge bg-light text-dark">N/A</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if request.status == 'PENDING' %}
+                                            <span class="badge bg-warning text-dark">
+                                                <i class="bi bi-clock"></i> En attente
+                                            </span>
+                                        {% elseif request.status == 'PROCESSING' %}
+                                            <span class="badge bg-info">
+                                                <i class="bi bi-cpu"></i> En cours
+                                            </span>
+                                        {% elseif request.status == 'COMPLETED' %}
+                                            <span class="badge bg-success">
+                                                <i class="bi bi-check-circle"></i> Terminée
+                                            </span>
+                                        {% elseif request.status == 'FAILED' %}
+                                            <span class="badge bg-danger">
+                                                <i class="bi bi-x-circle"></i> Échec
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">
+                                            {{ request.created_at|date('d/m/Y H:i') }}
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <a href="{{ path('app_request_detail', {id: request.id}) }}" class="btn btn-sm btn-outline-primary">
+                                            Détails
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 {# Recent Analyses Table #}
+{% if stats.recent_analyses is not empty %}
 <div class="row">
     <div class="col-12">
         <div class="card border-0 shadow-sm">
@@ -207,6 +312,7 @@
         </div>
     </div>
 </div>
+{% endif %}
 
 {# SVG Icons #}
 <svg style="display: none;">

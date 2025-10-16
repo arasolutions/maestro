@@ -3,15 +3,18 @@
 namespace App\Controller;
 
 use App\Service\N8nService;
+use Doctrine\DBAL\Connection;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Uid\Uuid;
 
 class RequestController extends AbstractController
 {
     public function __construct(
-        private readonly N8nService $n8nService
+        private readonly N8nService $n8nService,
+        private readonly Connection $connection
     ) {
     }
 
@@ -31,56 +34,102 @@ class RequestController extends AbstractController
         $currentProjectName = $request->getSession()->get('current_project_name');
 
         if ($request->isMethod('POST')) {
-            $title = $request->request->get('title');
+            // Vérifier le token CSRF
+            $token = $request->request->get('_token');
+            if (!$this->isCsrfTokenValid('request_form', $token)) {
+                $this->addFlash('error', 'Token CSRF invalide. Veuillez réessayer.');
+                return $this->redirectToRoute('app_request_new');
+            }
+
             $description = $request->request->get('description');
-            $type = $request->request->get('type');
-            $priority = $request->request->get('priority');
 
             // Validation
-            if (empty($title) || empty($description)) {
-                $this->addFlash('error', 'Le titre et la description sont obligatoires');
+            if (empty($description)) {
+                $this->addFlash('error', 'La description est obligatoire');
                 return $this->render('request/new.html.twig', [
                     'project_name' => $currentProjectName,
-                    'title' => $title,
                     'description' => $description,
-                    'type' => $type,
-                    'priority' => $priority,
                 ]);
             }
 
             try {
-                // Préparer le payload pour n8n
-                $requestText = "Titre: {$title}\n\nDescription: {$description}";
+                // Récupérer l'ID du projet
+                $projectId = $this->connection->fetchOne(
+                    'SELECT id FROM maestro.projects WHERE slug = :slug',
+                    ['slug' => $currentProjectSlug]
+                );
 
+                // Créer la request dans la base de données (description brute uniquement)
+                $requestId = Uuid::v4();
+
+                $this->connection->insert('maestro.requests', [
+                    'id' => $requestId,
+                    'request_text' => $description,
+                    'status' => 'PENDING',
+                    'project_id' => $projectId,
+                    'created_at' => new \DateTime(),
+                ], [
+                    'id' => 'uuid',
+                    'project_id' => 'uuid',
+                    'created_at' => 'datetime',
+                ]);
+
+                // Préparer le payload pour n8n avec le request_id
+                // L'orchestrator déterminera automatiquement type, priorité, complexité
                 $metadata = [
+                    'request_id' => (string) $requestId,
+                    'project_id' => (string) $projectId,
                     'project_slug' => $currentProjectSlug,
                     'project_name' => $currentProjectName,
-                    'type' => $type,
-                    'priority' => $priority,
-                    'title' => $title,
                 ];
 
-                // Appeler le webhook n8n
-                $response = $this->n8nService->triggerOrchestration($requestText, $metadata);
+                // Appeler l'agent Analyzer via webhook n8n
+                try {
+                    // Mettre à jour le status à PROCESSING
+                    $this->connection->update('maestro.requests',
+                        ['status' => 'PROCESSING', 'updated_at' => new \DateTime()],
+                        ['id' => $requestId],
+                        ['id' => 'uuid', 'updated_at' => 'datetime']
+                    );
 
-                $this->addFlash('success', 'Votre requête a été soumise avec succès et est en cours d\'analyse par les agents IA');
+                    // Appeler n8n orchestrator
+                    $response = $this->n8nService->triggerOrchestration($description, $metadata);
 
-                // Si n8n retourne un ID d'analyse, rediriger vers les détails
-                if (isset($response['analysis_id'])) {
-                    return $this->redirectToRoute('app_analysis_detail', ['id' => $response['analysis_id']]);
+                    // Enregistrer le webhook_execution_id si retourné par n8n
+                    if (isset($response['execution_id'])) {
+                        $this->connection->update('maestro.requests',
+                            ['webhook_execution_id' => $response['execution_id']],
+                            ['id' => $requestId],
+                            ['id' => 'uuid']
+                        );
+                    }
+
+                    $this->addFlash('success', 'Votre requête a été soumise avec succès et est en cours d\'analyse par les agents IA');
+
+                } catch (\Exception $webhookError) {
+                    // Si l'appel à n8n échoue, marquer la request comme FAILED mais continuer
+                    $this->connection->update('maestro.requests',
+                        [
+                            'status' => 'FAILED',
+                            'error_message' => $webhookError->getMessage(),
+                            'updated_at' => new \DateTime()
+                        ],
+                        ['id' => $requestId],
+                        ['id' => 'uuid', 'updated_at' => 'datetime']
+                    );
+
+                    $this->addFlash('warning', 'Requête créée mais l\'agent Analyzer n8n n\'a pas pu être contacté: ' . $webhookError->getMessage());
+                    // Ne pas throw pour permettre de voir la requête créée même si n8n échoue
                 }
 
-                // Sinon, rediriger vers le dashboard
-                return $this->redirectToRoute('app_project_dashboard', ['slug' => $currentProjectSlug]);
+                // Rediriger vers la page de suivi de la requête
+                return $this->redirectToRoute('app_request_detail', ['id' => (string) $requestId]);
 
             } catch (\Exception $e) {
                 $this->addFlash('error', 'Erreur lors de la soumission: ' . $e->getMessage());
                 return $this->render('request/new.html.twig', [
                     'project_name' => $currentProjectName,
-                    'title' => $title,
                     'description' => $description,
-                    'type' => $type,
-                    'priority' => $priority,
                 ]);
             }
         }
@@ -88,5 +137,45 @@ class RequestController extends AbstractController
         return $this->render('request/new.html.twig', [
             'project_name' => $currentProjectName,
         ]);
+    }
+
+    /**
+     * Page de détail d'une requête avec suivi du statut
+     */
+    #[Route('/request/{id}', name: 'app_request_detail')]
+    public function detail(string $id): Response
+    {
+        try {
+            // Récupérer la requête
+            $request = $this->connection->fetchAssociative(
+                'SELECT r.*, p.slug as project_slug, p.name as project_name
+                 FROM maestro.requests r
+                 LEFT JOIN maestro.projects p ON r.project_id = p.id
+                 WHERE r.id = :id',
+                ['id' => $id]
+            );
+
+            if (!$request) {
+                throw $this->createNotFoundException('Requête non trouvée');
+            }
+
+            // Vérifier si une analyse a été créée
+            $analysis = null;
+            if ($request['status'] === 'COMPLETED') {
+                $analysis = $this->connection->fetchAssociative(
+                    'SELECT * FROM maestro.analyses WHERE request_id = :request_id',
+                    ['request_id' => $id]
+                );
+            }
+
+            return $this->render('request/detail.html.twig', [
+                'request' => $request,
+                'analysis' => $analysis,
+            ]);
+
+        } catch (\Exception $e) {
+            $this->addFlash('error', 'Erreur: ' . $e->getMessage());
+            return $this->redirectToRoute('app_home');
+        }
     }
 }
