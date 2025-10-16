@@ -1,0 +1,247 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Code Généré - {{ story.title }}{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-okaidia.min.css">
+    <style>
+        .code-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem;
+            border-radius: 8px 8px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .code-file-card {
+            border: none;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 1.5rem;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .file-type-badge {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-weight: 600;
+        }
+
+        .badge-controller { background: #10b981; color: white; }
+        .badge-entity { background: #3b82f6; color: white; }
+        .badge-template { background: #f59e0b; color: white; }
+        .badge-other { background: #6b7280; color: white; }
+
+        pre[class*="language-"] {
+            margin: 0;
+            border-radius: 0 0 8px 8px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .story-summary {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 1rem;
+            margin-bottom: 2rem;
+            border-radius: 4px;
+        }
+
+        .no-code-placeholder {
+            text-align: center;
+            padding: 4rem 2rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 2px dashed #ddd;
+        }
+
+        .stats-card {
+            background: white;
+            border-radius: 8px;
+            padding: 1rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            text-align: center;
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+<div class="container-fluid py-4">
+    {# Breadcrumb Navigation #}
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item">
+                <a href="{{ path('app_project_dashboard', {slug: project.slug}) }}">
+                    <i class="bi bi-house"></i> {{ project.name }}
+                </a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{{ path('app_analysis_detail', {id: analysisId}) }}">
+                    <i class="bi bi-bar-chart"></i> Analyse
+                </a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{{ path('app_project_user_stories', {projectId: project.id}) }}">
+                    <i class="bi bi-list-check"></i> User Stories
+                </a>
+            </li>
+            <li class="breadcrumb-item active" aria-current="page">Code Généré</li>
+        </ol>
+    </nav>
+
+    {# User Story Summary #}
+    <div class="story-summary">
+        <h5 class="mb-3">
+            <i class="bi bi-card-text text-primary"></i> {{ story.title }}
+        </h5>
+        <div class="row">
+            <div class="col-md-8">
+                <p class="mb-2"><strong>En tant que:</strong> {{ story.as_a }}</p>
+                <p class="mb-2"><strong>Je veux:</strong> {{ story.i_want }}</p>
+                <p class="mb-0"><strong>Afin de:</strong> {{ story.so_that }}</p>
+            </div>
+            <div class="col-md-4 text-end">
+                <span class="badge bg-info">{{ story.priority|default('MEDIUM') }}</span>
+                <span class="badge bg-secondary">{{ story.story_points|default(0) }} points</span>
+            </div>
+        </div>
+    </div>
+
+    {% if generatedCode %}
+        {# Statistics Row #}
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <h6 class="text-muted mb-2">Fichiers générés</h6>
+                    <h3 class="text-primary mb-0">{{ generatedCode.codeFiles|length }}</h3>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <h6 class="text-muted mb-2">Langage</h6>
+                    <h3 class="mb-0">{{ generatedCode.language }}</h3>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <h6 class="text-muted mb-2">Framework</h6>
+                    <h3 class="mb-0">{{ generatedCode.framework }}</h3>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <h6 class="text-muted mb-2">Généré le</h6>
+                    <h3 class="mb-0">{{ generatedCode.createdAt|date('d/m/Y') }}</h3>
+                    <small class="text-muted">{{ generatedCode.createdAt|date('H:i') }}</small>
+                </div>
+            </div>
+        </div>
+
+        {# Documentation Section #}
+        {% if generatedCode.documentation %}
+        <div class="card mb-4 border-0 shadow-sm">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">
+                    <i class="bi bi-file-text"></i> Documentation
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="mb-0">{{ generatedCode.documentation }}</p>
+            </div>
+        </div>
+        {% endif %}
+
+        {# Generated Code Files #}
+        <h4 class="mb-3">
+            <i class="bi bi-code-slash"></i> Fichiers générés
+        </h4>
+
+        {% for file in generatedCode.codeFiles %}
+        <div class="code-file-card">
+            <div class="code-header">
+                <div>
+                    <h6 class="mb-1">{{ file.filename|default(file.path|split('/')|last) }}</h6>
+                    <small class="opacity-75">
+                        <i class="bi bi-folder"></i> {{ file.path }}
+                    </small>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    {% if file.type == 'controller' %}
+                        <span class="file-type-badge badge-controller">CONTROLLER</span>
+                    {% elseif file.type == 'entity' %}
+                        <span class="file-type-badge badge-entity">ENTITY</span>
+                    {% elseif file.type == 'template' %}
+                        <span class="file-type-badge badge-template">TEMPLATE</span>
+                    {% else %}
+                        <span class="file-type-badge badge-other">{{ file.type|upper|default('FILE') }}</span>
+                    {% endif %}
+                    {% if file.lines %}
+                        <small class="text-white-50">{{ file.lines }} lignes</small>
+                    {% endif %}
+                </div>
+            </div>
+            <pre><code class="language-{% if file.type == 'template' %}twig{% else %}php{% endif %}">{{ file.content }}</code></pre>
+        </div>
+        {% endfor %}
+
+        {# Regenerate Button #}
+        <div class="text-center mt-4">
+            <form method="post" action="{{ path('app_user_story_generate_code', {analysisId: analysisId, storyId: story.id}) }}" data-turbo="false">
+                <input type="hidden" name="_token" value="{{ csrf_token('generate_code_' ~ story.id) }}">
+                <button type="submit" class="btn btn-warning btn-lg" onclick="return confirm('Êtes-vous sûr de vouloir régénérer le code ? Cela remplacera le code existant.')">
+                    <i class="bi bi-arrow-clockwise"></i> Régénérer le code
+                </button>
+            </form>
+        </div>
+
+    {% else %}
+        {# No Code Generated Yet #}
+        <div class="no-code-placeholder">
+            <i class="bi bi-code-slash text-muted" style="font-size: 4rem;"></i>
+            <h3 class="text-muted mt-3">Aucun code généré pour cette User Story</h3>
+            <p class="text-muted mb-4">
+                Lancez la génération automatique de code pour créer les fichiers Controller, Entity et Template.
+            </p>
+            <form method="post" action="{{ path('app_user_story_generate_code', {analysisId: analysisId, storyId: story.id}) }}" data-turbo="false">
+                <input type="hidden" name="_token" value="{{ csrf_token('generate_code_' ~ story.id) }}">
+                <button type="submit" class="btn btn-primary btn-lg">
+                    <i class="bi bi-magic"></i> Générer le code automatiquement
+                </button>
+            </form>
+            <small class="text-muted d-block mt-3">
+                <i class="bi bi-info-circle"></i>
+                La génération prend environ 30 secondes. L'Agent DEV analysera la User Story et générera du code Symfony conforme.
+            </small>
+        </div>
+    {% endif %}
+
+    {# Back Button #}
+    <div class="text-center mt-4">
+        <a href="{{ path('app_project_user_stories', {projectId: project.id}) }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Retour aux User Stories
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-php.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-twig.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css">
+    <script>
+        // Apply line numbers to all code blocks
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('pre').forEach(function(pre) {
+                pre.classList.add('line-numbers');
+            });
+            Prism.highlightAll();
+        });
+    </script>
+{% endblock %}

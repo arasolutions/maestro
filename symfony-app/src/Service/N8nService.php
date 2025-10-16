@@ -161,6 +161,53 @@ class N8nService
     }
 
     /**
+     * Generic webhook call for any n8n workflow
+     *
+     * @param string $webhookPath The webhook path (e.g. '/webhook/dev-generate')
+     * @param array $payload The payload to send
+     * @param int $timeout Timeout in seconds
+     * @return array Response from webhook
+     * @throws \Exception If the webhook call fails
+     */
+    public function callWebhook(string $webhookPath, array $payload, int $timeout = 90): array
+    {
+        try {
+            $webhookUrl = $this->n8nWebhookUrl . $webhookPath;
+
+            $this->logger->info('Calling n8n webhook', [
+                'url' => $webhookUrl,
+                'payload_keys' => array_keys($payload)
+            ]);
+
+            $response = $this->httpClient->request('POST', $webhookUrl, [
+                'json' => $payload,
+                'timeout' => $timeout,
+                'headers' => [
+                    'Content-Type' => 'application/json',
+                ]
+            ]);
+
+            $statusCode = $response->getStatusCode();
+            $content = $response->toArray(false);
+
+            $this->logger->info('n8n webhook called successfully', [
+                'status_code' => $statusCode,
+                'url' => $webhookUrl
+            ]);
+
+            return $content;
+
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to call n8n webhook', [
+                'url' => $webhookPath,
+                'error' => $e->getMessage()
+            ]);
+
+            throw new \Exception('Failed to call n8n webhook: ' . $e->getMessage(), 0, $e);
+        }
+    }
+
+    /**
      * Health check for n8n service
      *
      * @return bool True if n8n is reachable

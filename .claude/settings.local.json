@@ -27,7 +27,15 @@
       "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console doctrine:query:sql \"SELECT id, analysis_id, story_points FROM maestro.user_stories WHERE analysis_id = ''45fd56f5-0206-4dca-81a5-a69aa87dff27''\")",
       "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console doctrine:query:sql \"SELECT p.project_cadrage FROM maestro.projects p INNER JOIN maestro.analyses a ON p.id = a.project_id WHERE a.id = ''45fd56f5-0206-4dca-81a5-a69aa87dff27''\")",
       "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console doctrine:query:sql \"SELECT stories::text FROM maestro.user_stories LIMIT 1\")",
-      "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console doctrine:query:sql \"SELECT jsonb_pretty(stories) FROM maestro.user_stories LIMIT 1\")"
+      "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console doctrine:query:sql \"SELECT jsonb_pretty(stories) FROM maestro.user_stories LIMIT 1\")",
+      "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console doctrine:query:sql \"SELECT COUNT(*) as total FROM maestro.requests\")",
+      "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console doctrine:query:sql \"SELECT id, request_text, status, project_id, created_at FROM maestro.requests ORDER BY created_at DESC LIMIT 5\")",
+      "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console doctrine:query:sql \"SELECT table_name FROM information_schema.tables WHERE table_schema = ''maestro'' ORDER BY table_name\")",
+      "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console doctrine:query:sql \"SELECT id, slug, name FROM maestro.projects\")",
+      "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console doctrine:query:sql \"SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = ''maestro'' AND table_name IN (''generated_code'', ''test_scenarios'') ORDER BY table_name, ordinal_position\")",
+      "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console doctrine:query:sql \"SELECT COUNT(*) as count FROM maestro.generated_code UNION ALL SELECT COUNT(*) FROM maestro.test_scenarios\")",
+      "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console doctrine:query:sql \"SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = ''maestro'' AND table_name = ''analyses'' ORDER BY ordinal_position\")",
+      "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console doctrine:query:sql:*)"
     ],
     "deny": [],
     "ask": [],
