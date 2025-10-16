@@ -38,6 +38,18 @@ class Project
     #[ORM\Column(type: Types::DATETIME_MUTABLE, name: 'created_at')]
     private ?\DateTimeInterface $createdAt = null;
 
+    #[ORM\Column(name: 'gitea_repo_id', nullable: true)]
+    private ?int $giteaRepoId = null;
+
+    #[ORM\Column(length: 255, name: 'gitea_repo_name', nullable: true)]
+    private ?string $giteaRepoName = null;
+
+    #[ORM\Column(length: 500, name: 'gitea_repo_url', nullable: true)]
+    private ?string $giteaRepoUrl = null;
+
+    #[ORM\Column(length: 100, name: 'gitea_webhook_secret', nullable: true)]
+    private ?string $giteaWebhookSecret = null;
+
     public function __construct()
     {
         $this->id = Uuid::v4();
@@ -149,5 +161,66 @@ class Project
     public function hasCadrage(): bool
     {
         return $this->projectCadrage !== null && !empty($this->projectCadrage);
+    }
+
+    public function getGiteaRepoId(): ?int
+    {
+        return $this->giteaRepoId;
+    }
+
+    public function setGiteaRepoId(?int $giteaRepoId): static
+    {
+        $this->giteaRepoId = $giteaRepoId;
+        return $this;
+    }
+
+    public function getGiteaRepoName(): ?string
+    {
+        return $this->giteaRepoName;
+    }
+
+    public function setGiteaRepoName(?string $giteaRepoName): static
+    {
+        $this->giteaRepoName = $giteaRepoName;
+        return $this;
+    }
+
+    public function getGiteaRepoUrl(): ?string
+    {
+        return $this->giteaRepoUrl;
+    }
+
+    public function setGiteaRepoUrl(?string $giteaRepoUrl): static
+    {
+        $this->giteaRepoUrl = $giteaRepoUrl;
+        return $this;
+    }
+
+    public function getGiteaWebhookSecret(): ?string
+    {
+        return $this->giteaWebhookSecret;
+    }
+
+    public function setGiteaWebhookSecret(?string $giteaWebhookSecret): static
+    {
+        $this->giteaWebhookSecret = $giteaWebhookSecret;
+        return $this;
+    }
+
+    /**
+     * Check if project has Gitea repository configured
+     */
+    public function hasGiteaRepo(): bool
+    {
+        return $this->giteaRepoId !== null && $this->giteaRepoUrl !== null;
+    }
+
+    /**
+     * Generate a random webhook secret
+     */
+    public function generateWebhookSecret(): string
+    {
+        $this->giteaWebhookSecret = bin2hex(random_bytes(16));
+        return $this->giteaWebhookSecret;
     }
 }

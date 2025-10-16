@@ -133,6 +133,9 @@ class ProjectController extends AbstractController
             $slug = $request->request->get('slug');
             $description = $request->request->get('description');
             $technicalStack = $request->request->get('technical_stack');
+            $gitUrl = $request->request->get('git_url');
+            $gitBranch = $request->request->get('git_branch') ?: 'main';
+            $gitToken = $request->request->get('git_token');
 
             // Validation
             if (empty($name) || empty($slug)) {
@@ -153,6 +156,8 @@ class ProjectController extends AbstractController
                     'slug' => $slug,
                     'description' => $description,
                     'technical_stack' => $technicalStack,
+                    'git_url' => $gitUrl,
+                    'git_branch' => $gitBranch,
                 ]);
             }
 
@@ -164,6 +169,12 @@ class ProjectController extends AbstractController
                 ];
             }
 
+            // Préparer les credentials Git
+            $gitCredentials = null;
+            if (!empty($gitToken)) {
+                $gitCredentials = json_encode(['token' => $gitToken]);
+            }
+
             // Créer le projet
             $this->connection->insert('maestro.projects', [
                 'id' => Uuid::v4()->toRfc4122(),
@@ -173,6 +184,9 @@ class ProjectController extends AbstractController
                 'config' => json_encode([]),
                 'project_cadrage' => !empty($projectCadrage) ? json_encode($projectCadrage) : null,
                 'project_cadrage_updated_at' => !empty($projectCadrage) ? (new \DateTime())->format('Y-m-d H:i:s') : null,
+                'git_url' => $gitUrl,
+                'git_branch' => $gitBranch,
+                'git_credentials' => $gitCredentials,
                 'created_at' => (new \DateTime())->format('Y-m-d H:i:s'),
             ]);
 
@@ -202,6 +216,9 @@ class ProjectController extends AbstractController
             $name = $request->request->get('name');
             $description = $request->request->get('description');
             $technicalStack = $request->request->get('technical_stack');
+            $gitUrl = $request->request->get('git_url');
+            $gitBranch = $request->request->get('git_branch') ?: 'main';
+            $gitToken = $request->request->get('git_token');
 
             if (empty($name)) {
                 $this->addFlash('error', 'Le nom est obligatoire');
@@ -217,11 +234,23 @@ class ProjectController extends AbstractController
 
             $projectCadrage['architecture']['stack_technique'] = $technicalStack;
 
+            // Préparer les credentials Git
+            $existingCredentials = $project['git_credentials'] ? json_decode($project['git_credentials'], true) : null;
+            $gitCredentials = $existingCredentials;
+
+            // Si un nouveau token est fourni, le mettre à jour
+            if (!empty($gitToken)) {
+                $gitCredentials = ['token' => $gitToken];
+            }
+
             $this->connection->update('maestro.projects', [
                 'name' => $name,
                 'description' => $description,
                 'project_cadrage' => json_encode($projectCadrage),
                 'project_cadrage_updated_at' => (new \DateTime())->format('Y-m-d H:i:s'),
+                'git_url' => $gitUrl,
+                'git_branch' => $gitBranch,
+                'git_credentials' => $gitCredentials ? json_encode($gitCredentials) : null,
             ], ['slug' => $slug]);
 
             $this->addFlash('success', 'Projet modifié avec succès');

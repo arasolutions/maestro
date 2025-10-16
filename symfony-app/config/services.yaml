@@ -5,6 +5,9 @@
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
     n8n_webhook_url: '%env(N8N_WEBHOOK_URL)%'
+    gitea_url: '%env(GITEA_URL)%'
+    gitea_token: '%env(GITEA_API_TOKEN)%'
+    gitea_org_name: '%env(GITEA_ORG_NAME)%'
 
 services:
     # default configuration for services in *this* file
@@ -24,3 +27,10 @@ services:
     App\Service\N8nService:
         arguments:
             $n8nWebhookUrl: '%n8n_webhook_url%'
+
+    # Gitea Service Configuration
+    App\Service\GiteaService:
+        arguments:
+            $giteaUrl: '%gitea_url%'
+            $giteaToken: '%gitea_token%'
+            $giteaOrgName: '%gitea_org_name%'

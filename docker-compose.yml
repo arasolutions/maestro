@@ -10,6 +10,7 @@ volumes:
   n8n_data:
   symfony_vendor:
   symfony_var:
+  gitea_data:
 
 services:
   # ======================
@@ -190,3 +191,53 @@ services:
       - "traefik.http.routers.maestro.tls=true"
       - "traefik.http.routers.maestro.tls.certresolver=letsencrypt"
       - "traefik.http.services.maestro.loadbalancer.server.port=80"
+
+  # ======================
+  # GITEA - GIT SERVER
+  # ======================
+  gitea:
+    image: 'gitea/gitea:1.21'
+    container_name: maestro-gitea
+    restart: unless-stopped
+    environment:
+      USER_UID: '1000'
+      USER_GID: '1000'
+      GITEA__database__DB_TYPE: 'postgres'
+      GITEA__database__HOST: 'postgres:5432'
+      GITEA__database__NAME: 'gitea'
+      GITEA__database__USER: '${POSTGRES_USER}'
+      GITEA__database__PASSWD: '${POSTGRES_PASSWORD}'
+      GITEA__server__ROOT_URL: 'https://git.maestro.ara-solutions.cloud/'
+      GITEA__server__HTTP_PORT: '3000'
+      GITEA__server__DOMAIN: 'git.maestro.ara-solutions.cloud'
+      GITEA__server__SSH_PORT: '2222'
+      GITEA__server__SSH_DOMAIN: 'git.maestro.ara-solutions.cloud'
+      GITEA__service__DISABLE_REGISTRATION: 'true'
+      GITEA__api__ENABLE_SWAGGER: 'true'
+      GITEA__webhook__ALLOWED_HOST_LIST: '*'
+      GITEA__database__SCHEMA: 'public'
+    volumes:
+      - 'gitea_data:/data'
+      - '/etc/timezone:/etc/timezone:ro'
+      - '/etc/localtime:/etc/localtime:ro'
+    networks:
+      - coolify
+    ports:
+      - '3000:3000'
+      - '2222:22'
+    mem_limit: 768m
+    mem_reservation: 512m
+    depends_on:
+      - postgres
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.gitea.rule=Host(`git.maestro.ara-solutions.cloud`)"
+      - "traefik.http.routers.gitea.entrypoints=https"
+      - "traefik.http.routers.gitea.tls=true"
+      - "traefik.http.routers.gitea.tls.certresolver=letsencrypt"
+      - "traefik.http.services.gitea.loadbalancer.server.port=3000"
