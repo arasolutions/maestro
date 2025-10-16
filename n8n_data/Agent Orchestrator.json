@@ -1,0 +1,249 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "orchestrate",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -928,
+        224
+      ],
+      "id": "8872cfa2-4f30-4a2e-acf5-24c71700f9e3",
+      "name": "Start Orchestration",
+      "webhookId": "orchestrate-maestro"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/analyze",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"request\": \"{{ $json.body.request }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -736,
+        224
+      ],
+      "id": "811ab538-686a-46a0-9ed7-cdffeb0352de",
+      "name": "1. Call PM Agent"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extraire les données de l'analyse PM\nconst pmResponse = $input.first().json;\nconsole.log(\"PM Response:\", pmResponse);\n\n// Stocker les infos importantes\nconst analysisData = {\n  original_request: $('Start Orchestration').first().json.body.request,\n  pm_analysis: pmResponse,\n  analysis_id: pmResponse.analysis_id || null,\n  complexity: pmResponse.complexity || 'M',\n  agents_needed: pmResponse.agents_needed || [],\n  next_steps: []\n};\n\n// Déterminer si on a besoin du cadrage\nconst needsCadrage = ['M', 'L', 'XL'].includes(analysisData.complexity);\n\nreturn [{\n  json: {\n    ...analysisData,\n    needs_cadrage: needsCadrage,\n    workflow_status: \"PM Analysis Complete\"\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -528,
+        224
+      ],
+      "id": "9ab4d019-f1a7-4e92-90e2-2b2fbc147182",
+      "name": "Process PM Result"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.needs_cadrage }}",
+              "value2": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -336,
+        224
+      ],
+      "id": "553dc822-0523-4088-af36-8d79abddd9cf",
+      "name": "Need Cadrage?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/cadrage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"request\": \"{{ $('Start Orchestration').item.json.body.request }}\",\n  \"analysis_id\": \"{{ $json.analysis_id }}\"\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -128,
+        112
+      ],
+      "id": "fe239ab9-066b-4975-a1e1-e663ba77ee9f",
+      "name": "2. Call Cadrage Agent"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "field1",
+              "name": "workflow_status",
+              "value": "Simple request - No cadrage needed",
+              "type": "string"
+            },
+            {
+              "id": "field2",
+              "name": "original_request",
+              "value": "={{ $json.original_request }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -128,
+        320
+      ],
+      "id": "5579652e-8761-4798-bd32-1ed6e23c5942",
+      "name": "Simple Flow"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Compiler tous les résultats\nconst results = {\n  timestamp: new Date().toISOString(),\n  request: $('Start Orchestration').first().json.body.request,\n  pm_analysis: $('Process PM Result').first().json,\n  cadrage: null,\n  user_stories: null,\n  workflow_complete: false\n};\n\n// Ajouter le cadrage si disponible\nif ($('2. Call Cadrage Agent').all().length > 0) {\n  const cadrageResult = $('2. Call Cadrage Agent').first().json;\n  results.cadrage = cadrageResult;\n  results.workflow_complete = true;\n  results.summary = {\n    complexity: results.pm_analysis.complexity,\n    estimated_days: cadrageResult.effort_jours || 'N/A',\n    agents_used: ['PM', 'CADRAGE'],\n    status: 'Cadrage completed'\n  };\n} else {\n  results.summary = {\n    complexity: results.pm_analysis.complexity || 'XS',\n    agents_used: ['PM'],\n    status: 'Simple analysis completed'\n  };\n}\n\nreturn [{ json: results }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        80,
+        224
+      ],
+      "id": "d2d22f82-99ff-4929-b200-abc561521b47",
+      "name": "Merge Results"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json, null, 2) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        272,
+        224
+      ],
+      "id": "f0c9b91c-7271-4e4f-b1ab-81d639724b7a",
+      "name": "Final Response"
+    }
+  ],
+  "connections": {
+    "Start Orchestration": {
+      "main": [
+        [
+          {
+            "node": "1. Call PM Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1. Call PM Agent": {
+      "main": [
+        [
+          {
+            "node": "Process PM Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process PM Result": {
+      "main": [
+        [
+          {
+            "node": "Need Cadrage?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Need Cadrage?": {
+      "main": [
+        [
+          {
+            "node": "2. Call Cadrage Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Simple Flow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2. Call Cadrage Agent": {
+      "main": [
+        [
+          {
+            "node": "Merge Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Flow": {
+      "main": [
+        [
+          {
+            "node": "Merge Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Results": {
+      "main": [
+        [
+          {
+            "node": "Final Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "ed02db89d7f2488035bfec7b1491988dab1d203f160701f703954ad6afe22be8"
+  }
+}
