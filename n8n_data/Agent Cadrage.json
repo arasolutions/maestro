@@ -1,0 +1,140 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cadrage",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -144,
+        16
+      ],
+      "id": "107378e8-4f6c-44d4-9e2c-38a908653ba5",
+      "name": "Webhook Cadrage",
+      "webhookId": "cadrage-analysis"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=AIzaSyCh8UXpXbf_E-NtkJC5QbMmbUpRw2zKN1M",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": \"Tu es l'Architecte Fonctionnel de MAESTRO, expert en analyse des besoins.\\n\\nDemande à analyser: {{$json.request}}\\n\\nTa mission:\\n1. Définir le périmètre fonctionnel précis\\n2. Identifier toutes les contraintes (techniques, business, légales)\\n3. Lister les prérequis et dépendances\\n4. Estimer les ressources nécessaires\\n5. Créer une matrice SWOT\\n\\nRéponds UNIQUEMENT en JSON:\\n{\\n  \\\"perimetre\\\": {\\n    \\\"objectif_principal\\\": \\\"description claire\\\",\\n    \\\"fonctionnalites_core\\\": [\\\"liste des features essentielles\\\"],\\n    \\\"fonctionnalites_nice_to_have\\\": [\\\"features optionnelles\\\"],\\n    \\\"hors_perimetre\\\": [\\\"ce qui n'est PAS inclus\\\"]\\n  },\\n  \\\"contraintes\\\": {\\n    \\\"techniques\\\": [\\\"technologies, performances, etc.\\\"],\\n    \\\"business\\\": [\\\"budget, délais, ROI\\\"],\\n    \\\"securite\\\": [\\\"RGPD, auth, encryption\\\"],\\n    \\\"integration\\\": [\\\"APIs, systèmes existants\\\"]\\n  },\\n  \\\"architecture\\\": {\\n    \\\"type\\\": \\\"monolithe/microservices/serverless\\\",\\n    \\\"stack_recommande\\\": {\\n      \\\"frontend\\\": \\\"technologies\\\",\\n      \\\"backend\\\": \\\"technologies\\\",\\n      \\\"database\\\": \\\"type et tech\\\",\\n      \\\"infrastructure\\\": \\\"cloud/on-premise\\\"\\n    }\\n  },\\n  \\\"swot\\\": {\\n    \\\"forces\\\": [\\\"points forts du projet\\\"],\\n    \\\"faiblesses\\\": [\\\"points faibles\\\"],\\n    \\\"opportunites\\\": [\\\"opportunités business\\\"],\\n    \\\"menaces\\\": [\\\"risques identifiés\\\"]\\n  },\\n  \\\"estimation\\\": {\\n    \\\"effort_jours\\\": nombre,\\n    \\\"equipe_ideale\\\": [\\\"profils nécessaires\\\"],\\n    \\\"budget_estime\\\": \\\"fourchette\\\"\\n  }\\n}\"\n    }]\n  }],\n  \"generationConfig\": {\n    \"temperature\": 0.6,\n    \"maxOutputTokens\": 2048,\n    \"responseMimeType\": \"application/json\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        64,
+        16
+      ],
+      "id": "27f44dda-023f-4012-9cec-391c56622510",
+      "name": "Gemini Cadrage Analysis"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO maestro.cadrages (\n  analysis_id,\n  perimetre,\n  contraintes,\n  architecture,\n  swot,\n  estimation,\n  full_response\n) VALUES (\n  $1::uuid,\n  $2::jsonb,\n  $3::jsonb,\n  $4::jsonb,\n  $5::jsonb,\n  $6::jsonb,\n  $7::jsonb\n) RETURNING id, created_at;",
+        "options": {
+          "queryReplacement": "={{ $json.params }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        464,
+        16
+      ],
+      "id": "617c555c-6b3d-4320-b211-ca9b36eb81ce",
+      "name": "Save Cadrage",
+      "credentials": {
+        "postgres": {
+          "id": "LZQHq6vDOsI91G4D",
+          "name": "MAESTRO DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const geminiResponse = $input.first().json;\nconst analysisId = $('Webhook Cadrage').first().json.body.analysis_id;\n\nlet cadrage = {};\ntry {\n  const textContent = geminiResponse.candidates[0].content.parts[0].text;\n  cadrage = JSON.parse(textContent);\n} catch(e) {\n  console.error(\"Parse error:\", e);\n  cadrage = {\n    perimetre: {},\n    contraintes: {},\n    architecture: {},\n    swot: {},\n    estimation: {}\n  };\n}\n\nconst params = [\n  analysisId,\n  JSON.stringify(cadrage.perimetre),\n  JSON.stringify(cadrage.contraintes),\n  JSON.stringify(cadrage.architecture),\n  JSON.stringify(cadrage.swot),\n  JSON.stringify(cadrage.estimation),\n  JSON.stringify(cadrage)\n];\n\nreturn [{ json: { params, cadrage } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        256,
+        16
+      ],
+      "id": "15c54778-c329-4e4a-86cd-bbd5623ca205",
+      "name": "Prepare Cadrage Data"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({\n  \"status\": \"success\",\n  \"message\": \"Cadrage complété\",\n  \"cadrage_id\": $json.id,\n  \"summary\": {\n    \"effort_jours\": $('Prepare Cadrage Data').first().json.cadrage.estimation.effort_jours,\n    \"architecture\": $('Prepare Cadrage Data').first().json.cadrage.architecture.type,\n    \"nb_contraintes\": Object.values($('Prepare Cadrage Data').first().json.cadrage.contraintes).flat().length\n  }\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        656,
+        16
+      ],
+      "id": "e9208801-4ca1-4dfa-a917-a2fadc67648d",
+      "name": "Respond Cadrage"
+    }
+  ],
+  "connections": {
+    "Webhook Cadrage": {
+      "main": [
+        [
+          {
+            "node": "Gemini Cadrage Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Cadrage Analysis": {
+      "main": [
+        [
+          {
+            "node": "Prepare Cadrage Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Cadrage": {
+      "main": [
+        [
+          {
+            "node": "Respond Cadrage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Cadrage Data": {
+      "main": [
+        [
+          {
+            "node": "Save Cadrage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "ed02db89d7f2488035bfec7b1491988dab1d203f160701f703954ad6afe22be8"
+  }
+}

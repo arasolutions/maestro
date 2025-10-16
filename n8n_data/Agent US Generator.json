@@ -1,0 +1,140 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "generate-us",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -336,
+        -176
+      ],
+      "id": "698af445-850c-48e6-a2bc-d4f089980fc2",
+      "name": "Webhook US",
+      "webhookId": "us-generator"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=AIzaSyCh8UXpXbf_E-NtkJC5QbMmbUpRw2zKN1M",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": \"Tu es le Product Owner de MAESTRO, expert en rédaction de User Stories Agile.\\n\\nContexte du projet:\\n{{$json.body.request}}\\n\\nInformations du cadrage (si disponible):\\n{{$json.body.cadrage_info || 'Pas de cadrage fourni'}}\\n\\nMission:\\n1. Décomposer en User Stories atomiques (1-5 jours max chacune)\\n2. Format: En tant que... Je veux... Afin de...\\n3. Critères d'acceptance en format Gherkin (Given/When/Then)\\n4. Estimation en story points (Fibonacci: 1,2,3,5,8,13)\\n5. Priorisation MoSCoW (Must/Should/Could/Won't)\\n6. Identifier les dépendances entre stories\\n\\nRéponds UNIQUEMENT en JSON:\\n{\\n  \\\"epic\\\": {\\n    \\\"title\\\": \\\"Titre de l'epic principal\\\",\\n    \\\"goal\\\": \\\"Objectif business\\\"\\n  },\\n  \\\"stories\\\": [\\n    {\\n      \\\"id\\\": \\\"US-001\\\",\\n      \\\"title\\\": \\\"Titre court\\\",\\n      \\\"as_a\\\": \\\"type d'utilisateur\\\",\\n      \\\"i_want\\\": \\\"action souhaitée\\\",\\n      \\\"so_that\\\": \\\"bénéfice attendu\\\",\\n      \\\"acceptance_criteria\\\": [\\n        \\\"GIVEN contexte WHEN action THEN résultat\\\",\\n        \\\"GIVEN autre contexte WHEN autre action THEN autre résultat\\\"\\n      ],\\n      \\\"story_points\\\": 3,\\n      \\\"priority\\\": \\\"MUST\\\",\\n      \\\"dependencies\\\": [],\\n      \\\"technical_notes\\\": \\\"Notes pour les devs\\\",\\n      \\\"test_scenarios\\\": 3\\n    }\\n  ],\\n  \\\"sprint_suggestion\\\": {\\n    \\\"sprint_1\\\": [\\\"US-001\\\", \\\"US-002\\\"],\\n    \\\"sprint_2\\\": [\\\"US-003\\\", \\\"US-004\\\"],\\n    \\\"velocity\\\": 20\\n  },\\n  \\\"metrics\\\": {\\n    \\\"total_points\\\": 45,\\n    \\\"must_have_points\\\": 25,\\n    \\\"should_have_points\\\": 15,\\n    \\\"could_have_points\\\": 5\\n  }\\n}\"\n    }]\n  }],\n  \"generationConfig\": {\n    \"temperature\": 0.7,\n    \"maxOutputTokens\": 4096,\n    \"responseMimeType\": \"application/json\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -144,
+        -176
+      ],
+      "id": "8be26387-7f1f-43cb-a12d-34014d521247",
+      "name": "Gemini US Generation"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parser la réponse Gemini\nconst geminiResponse = $input.first().json;\nconst requestData = $('Webhook US').first().json.body;\n\nlet userStories = {};\ntry {\n  const textContent = geminiResponse.candidates[0].content.parts[0].text;\n  userStories = JSON.parse(textContent);\n  console.log(`✅ ${userStories.stories?.length || 0} User Stories générées`);\n} catch(e) {\n  console.error(\"❌ Erreur parsing:\", e);\n  userStories = {\n    epic: { title: \"Error\", goal: \"Parse failed\" },\n    stories: [],\n    metrics: { total_points: 0 }\n  };\n}\n\n// Préparer pour la DB\nconst params = [\n  requestData.analysis_id || null,\n  requestData.cadrage_id || null,\n  JSON.stringify(userStories.stories),\n  JSON.stringify(userStories.stories.map(s => s.acceptance_criteria).flat()),\n  userStories.metrics?.total_points || 0,\n  JSON.stringify(userStories.sprint_suggestion || {}),\n  JSON.stringify(userStories.stories.map(s => ({ id: s.id, deps: s.dependencies }))),\n  JSON.stringify(userStories)\n];\n\nreturn [{ \n  json: { \n    params,\n    user_stories: userStories,\n    summary: {\n      total_stories: userStories.stories?.length || 0,\n      total_points: userStories.metrics?.total_points || 0,\n      sprints_needed: Object.keys(userStories.sprint_suggestion || {}).length\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        64,
+        -176
+      ],
+      "id": "33d5bcd1-37c8-4f09-9b2b-996d86e87aef",
+      "name": "Process US Data"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO maestro.user_stories (\n  analysis_id,\n  cadrage_id,\n  stories,\n  acceptance_criteria,\n  story_points,\n  priority_order,\n  dependencies,\n  full_response\n) VALUES (\n  $1::uuid,\n  $2::uuid,\n  $3::jsonb,\n  $4::jsonb,\n  $5,\n  $6::jsonb,\n  $7::jsonb,\n  $8::jsonb\n) RETURNING id, created_at;",
+        "options": {
+          "queryReplacement": "={{ $json.params }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        272,
+        -176
+      ],
+      "id": "55940ac6-5075-44d9-9c0e-d1cb5f54404a",
+      "name": "Save User Stories",
+      "credentials": {
+        "postgres": {
+          "id": "LZQHq6vDOsI91G4D",
+          "name": "MAESTRO DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({\n  \"status\": \"success\",\n  \"us_id\": $json.id,\n  \"summary\": $('Process US Data').first().json.summary,\n  \"stories\": $('Process US Data').first().json.user_stories.stories.map(s => ({\n    id: s.id,\n    title: s.title,\n    points: s.story_points,\n    priority: s.priority\n  }))\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        464,
+        -176
+      ],
+      "id": "1a766568-4c0a-43b2-b3e2-3c0a9ced98b5",
+      "name": "Respond US"
+    }
+  ],
+  "connections": {
+    "Webhook US": {
+      "main": [
+        [
+          {
+            "node": "Gemini US Generation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini US Generation": {
+      "main": [
+        [
+          {
+            "node": "Process US Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process US Data": {
+      "main": [
+        [
+          {
+            "node": "Save User Stories",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save User Stories": {
+      "main": [
+        [
+          {
+            "node": "Respond US",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "ed02db89d7f2488035bfec7b1491988dab1d203f160701f703954ad6afe22be8"
+  }
+}
