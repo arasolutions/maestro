@@ -62,6 +62,7 @@ class ProjectController extends AbstractController
         }
 
         // Stocker le projet en session
+        $request->getSession()->set('current_project_id', $project['id']);
         $request->getSession()->set('current_project_slug', $slug);
         $request->getSession()->set('current_project_name', $project['name']);
 
@@ -87,6 +88,7 @@ class ProjectController extends AbstractController
         }
 
         // Mettre à jour la session
+        $request->getSession()->set('current_project_id', $project['id']);
         $request->getSession()->set('current_project_slug', $slug);
         $request->getSession()->set('current_project_name', $project['name']);
 
@@ -130,6 +132,7 @@ class ProjectController extends AbstractController
             $name = $request->request->get('name');
             $slug = $request->request->get('slug');
             $description = $request->request->get('description');
+            $technicalStack = $request->request->get('technical_stack');
 
             // Validation
             if (empty($name) || empty($slug)) {
@@ -149,7 +152,16 @@ class ProjectController extends AbstractController
                     'name' => $name,
                     'slug' => $slug,
                     'description' => $description,
+                    'technical_stack' => $technicalStack,
                 ]);
+            }
+
+            // Préparer le project_cadrage avec la stack technique
+            $projectCadrage = [];
+            if (!empty($technicalStack)) {
+                $projectCadrage['architecture'] = [
+                    'stack_technique' => $technicalStack
+                ];
             }
 
             // Créer le projet
@@ -159,6 +171,8 @@ class ProjectController extends AbstractController
                 'name' => $name,
                 'description' => $description,
                 'config' => json_encode([]),
+                'project_cadrage' => !empty($projectCadrage) ? json_encode($projectCadrage) : null,
+                'project_cadrage_updated_at' => !empty($projectCadrage) ? (new \DateTime())->format('Y-m-d H:i:s') : null,
                 'created_at' => (new \DateTime())->format('Y-m-d H:i:s'),
             ]);
 
@@ -187,15 +201,27 @@ class ProjectController extends AbstractController
         if ($request->isMethod('POST')) {
             $name = $request->request->get('name');
             $description = $request->request->get('description');
+            $technicalStack = $request->request->get('technical_stack');
 
             if (empty($name)) {
                 $this->addFlash('error', 'Le nom est obligatoire');
                 return $this->render('project/edit.html.twig', ['project' => $project]);
             }
 
+            // Préparer le project_cadrage avec la stack technique
+            $projectCadrage = $project['project_cadrage'] ? json_decode($project['project_cadrage'], true) : [];
+
+            if (!isset($projectCadrage['architecture'])) {
+                $projectCadrage['architecture'] = [];
+            }
+
+            $projectCadrage['architecture']['stack_technique'] = $technicalStack;
+
             $this->connection->update('maestro.projects', [
                 'name' => $name,
                 'description' => $description,
+                'project_cadrage' => json_encode($projectCadrage),
+                'project_cadrage_updated_at' => (new \DateTime())->format('Y-m-d H:i:s'),
             ], ['slug' => $slug]);
 
             $this->addFlash('success', 'Projet modifié avec succès');
@@ -233,6 +259,7 @@ class ProjectController extends AbstractController
 
         // Supprimer de la session si c'était le projet actif
         if ($request->getSession()->get('current_project_slug') === $slug) {
+            $request->getSession()->remove('current_project_id');
             $request->getSession()->remove('current_project_slug');
             $request->getSession()->remove('current_project_name');
         }

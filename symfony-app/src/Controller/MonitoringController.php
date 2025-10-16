@@ -63,49 +63,59 @@ class MonitoringController extends AbstractController
             return new JsonResponse(['error' => 'Project not found'], 404);
         }
 
-        // Récupérer les analyses récentes du projet
-        $recentAnalyses = $this->connection->fetchAllAssociative(
+        // Récupérer les requêtes récentes du projet avec leurs analyses
+        $recentRequests = $this->connection->fetchAllAssociative(
             "SELECT
-                id,
-                request_text,
-                complexity,
-                priority,
-                confidence,
-                webhook_execution_id,
-                created_at
-            FROM maestro.analyses
-            WHERE project_id = :projectId
-            ORDER BY created_at DESC
+                r.id,
+                r.request_text,
+                r.status as request_status,
+                r.webhook_execution_id,
+                r.created_at,
+                a.id as analysis_id,
+                a.complexity,
+                a.priority,
+                a.confidence
+            FROM maestro.requests r
+            LEFT JOIN maestro.analyses a ON r.id = a.request_id
+            WHERE r.project_id = :projectId
+            ORDER BY r.created_at DESC
             LIMIT 20",
             ['projectId' => $project['id']]
         );
 
-        // Récupérer le statut depuis n8n (si webhook_execution_id existe)
+        // Mapper le statut des requêtes vers le format de monitoring
         $executions = [];
-        foreach ($recentAnalyses as $analysis) {
-            $status = 'completed'; // Par défaut
-            $duration = null;
-
-            // Si on a un webhook_execution_id, on pourrait appeler l'API n8n pour récupérer le statut
-            // Pour l'instant, on simule le statut en fonction de l'heure de création
-            $createdAt = new \DateTime($analysis['created_at']);
+        foreach ($recentRequests as $req) {
+            $createdAt = new \DateTime($req['created_at']);
             $now = new \DateTime();
             $minutesAgo = ($now->getTimestamp() - $createdAt->getTimestamp()) / 60;
 
-            if ($minutesAgo < 5) {
-                $status = 'running';
-            } elseif ($minutesAgo < 15 && !$analysis['confidence']) {
-                $status = 'waiting';
+            // Mapper le statut de la requête
+            $status = 'completed';
+            switch ($req['request_status']) {
+                case 'PENDING':
+                    $status = 'waiting';
+                    break;
+                case 'PROCESSING':
+                    $status = 'running';
+                    break;
+                case 'COMPLETED':
+                    $status = 'completed';
+                    break;
+                case 'FAILED':
+                    $status = 'error';
+                    break;
             }
 
             $executions[] = [
-                'id' => $analysis['id'],
-                'request_text' => substr($analysis['request_text'], 0, 100) . '...',
-                'complexity' => $analysis['complexity'],
-                'priority' => $analysis['priority'],
+                'id' => $req['analysis_id'] ?: $req['id'], // Utiliser analysis_id si existe, sinon request_id
+                'request_id' => $req['id'],
+                'request_text' => substr($req['request_text'], 0, 100) . '...',
+                'complexity' => $req['complexity'],
+                'priority' => $req['priority'],
                 'status' => $status,
-                'created_at' => $analysis['created_at'],
-                'webhook_id' => $analysis['webhook_execution_id'],
+                'created_at' => $req['created_at'],
+                'webhook_id' => $req['webhook_execution_id'],
                 'minutes_ago' => round($minutesAgo),
             ];
         }
@@ -141,26 +151,30 @@ class MonitoringController extends AbstractController
             return new JsonResponse(['error' => 'Project not found'], 404);
         }
 
-        // Stats des dernières 24h
+        // Stats des dernières 24h basées sur les requêtes
         $stats = [
             'total_today' => (int) $this->connection->fetchOne(
-                "SELECT COUNT(*) FROM maestro.analyses
+                "SELECT COUNT(*) FROM maestro.requests
                 WHERE project_id = :projectId
                 AND created_at >= NOW() - INTERVAL '24 hours'",
                 ['projectId' => $project['id']]
             ),
             'avg_confidence_today' => (float) $this->connection->fetchOne(
-                "SELECT AVG(confidence) FROM maestro.analyses
-                WHERE project_id = :projectId
-                AND created_at >= NOW() - INTERVAL '24 hours'
-                AND confidence IS NOT NULL",
+                "SELECT AVG(a.confidence)
+                FROM maestro.analyses a
+                INNER JOIN maestro.requests r ON a.request_id = r.id
+                WHERE r.project_id = :projectId
+                AND r.created_at >= NOW() - INTERVAL '24 hours'
+                AND a.confidence IS NOT NULL",
                 ['projectId' => $project['id']]
             ) ?: 0,
             'total_hours_estimated' => (int) $this->connection->fetchOne(
-                "SELECT SUM(estimated_hours) FROM maestro.analyses
-                WHERE project_id = :projectId
-                AND created_at >= NOW() - INTERVAL '24 hours'
-                AND estimated_hours IS NOT NULL",
+                "SELECT SUM(a.estimated_hours)
+                FROM maestro.analyses a
+                INNER JOIN maestro.requests r ON a.request_id = r.id
+                WHERE r.project_id = :projectId
+                AND r.created_at >= NOW() - INTERVAL '24 hours'
+                AND a.estimated_hours IS NOT NULL",
                 ['projectId' => $project['id']]
             ) ?: 0,
         ];

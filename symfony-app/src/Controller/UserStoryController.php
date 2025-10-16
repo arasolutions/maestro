@@ -123,4 +123,159 @@ class UserStoryController extends AbstractController
             'stats' => $stats,
         ]);
     }
+
+    /**
+     * Edit a user story
+     */
+    #[Route('/user-story/{analysisId}/{storyId}/edit', name: 'app_user_story_edit')]
+    public function edit(string $analysisId, string $storyId, Request $request): Response
+    {
+        // Get the user stories record
+        $userStoriesRecord = $this->connection->fetchAssociative(
+            'SELECT * FROM maestro.user_stories WHERE analysis_id = :analysisId',
+            ['analysisId' => $analysisId]
+        );
+
+        if (!$userStoriesRecord) {
+            throw $this->createNotFoundException('User stories introuvables');
+        }
+
+        // Decode stories and find the specific one
+        $stories = json_decode($userStoriesRecord['stories'], true);
+        $storyIndex = null;
+        $story = null;
+
+        foreach ($stories as $index => $s) {
+            if ($s['id'] === $storyId) {
+                $storyIndex = $index;
+                $story = $s;
+                break;
+            }
+        }
+
+        if (!$story) {
+            throw $this->createNotFoundException('User story introuvable');
+        }
+
+        // Get analysis for context
+        $analysis = $this->connection->fetchAssociative(
+            'SELECT * FROM maestro.analyses WHERE id = :id',
+            ['id' => $analysisId]
+        );
+
+        // Get project
+        $project = $this->connection->fetchAssociative(
+            'SELECT * FROM maestro.projects WHERE id = :id',
+            ['id' => $analysis['project_id']]
+        );
+
+        return $this->render('user_story/edit.html.twig', [
+            'story' => $story,
+            'storyIndex' => $storyIndex,
+            'analysisId' => $analysisId,
+            'analysis' => $analysis,
+            'project' => $project,
+        ]);
+    }
+
+    /**
+     * Update a user story
+     */
+    #[Route('/user-story/{analysisId}/{storyId}/update', name: 'app_user_story_update', methods: ['POST'])]
+    public function update(string $analysisId, string $storyId, Request $request): Response
+    {
+        // CSRF validation
+        $token = $request->request->get('_token');
+        if (!$this->isCsrfTokenValid('update_user_story_' . $storyId, $token)) {
+            $this->addFlash('error', 'Token CSRF invalide');
+            return $this->redirectToRoute('app_user_story_edit', [
+                'analysisId' => $analysisId,
+                'storyId' => $storyId
+            ]);
+        }
+
+        try {
+            // Get the user stories record
+            $userStoriesRecord = $this->connection->fetchAssociative(
+                'SELECT * FROM maestro.user_stories WHERE analysis_id = :analysisId',
+                ['analysisId' => $analysisId]
+            );
+
+            if (!$userStoriesRecord) {
+                throw $this->createNotFoundException('User stories introuvables');
+            }
+
+            // Decode stories
+            $stories = json_decode($userStoriesRecord['stories'], true);
+            $storyIndex = null;
+
+            foreach ($stories as $index => $s) {
+                if ($s['id'] === $storyId) {
+                    $storyIndex = $index;
+                    break;
+                }
+            }
+
+            if ($storyIndex === null) {
+                throw $this->createNotFoundException('User story introuvable');
+            }
+
+            // Update the story with form data
+            $stories[$storyIndex]['title'] = $request->request->get('title');
+            $stories[$storyIndex]['as_a'] = $request->request->get('as_a');
+            $stories[$storyIndex]['i_want'] = $request->request->get('i_want');
+            $stories[$storyIndex]['so_that'] = $request->request->get('so_that');
+            $stories[$storyIndex]['story_points'] = (int) $request->request->get('story_points');
+            $stories[$storyIndex]['priority'] = $request->request->get('priority');
+            $stories[$storyIndex]['status'] = $request->request->get('status');
+            $stories[$storyIndex]['technical_notes'] = $request->request->get('technical_notes');
+
+            // Handle acceptance criteria (one per line)
+            $acceptanceCriteria = $request->request->get('acceptance_criteria');
+            $stories[$storyIndex]['acceptance_criteria'] = array_filter(
+                explode("\n", $acceptanceCriteria),
+                fn($line) => trim($line) !== ''
+            );
+
+            // Handle test scenarios (one per line)
+            $testScenarios = $request->request->get('test_scenarios');
+            $stories[$storyIndex]['test_scenarios'] = array_filter(
+                explode("\n", $testScenarios),
+                fn($line) => trim($line) !== ''
+            );
+
+            // Handle dependencies (comma separated)
+            $dependencies = $request->request->get('dependencies');
+            $stories[$storyIndex]['dependencies'] = array_filter(
+                array_map('trim', explode(',', $dependencies)),
+                fn($dep) => $dep !== ''
+            );
+
+            // Update the database
+            $this->connection->update(
+                'maestro.user_stories',
+                ['stories' => json_encode($stories)],
+                ['analysis_id' => $analysisId]
+            );
+
+            $this->addFlash('success', 'User story mise à jour avec succès');
+
+            // Get project ID for redirect
+            $analysis = $this->connection->fetchAssociative(
+                'SELECT project_id FROM maestro.analyses WHERE id = :id',
+                ['id' => $analysisId]
+            );
+
+            return $this->redirectToRoute('app_project_user_stories', [
+                'projectId' => $analysis['project_id']
+            ]);
+
+        } catch (\Exception $e) {
+            $this->addFlash('error', 'Erreur lors de la mise à jour : ' . $e->getMessage());
+            return $this->redirectToRoute('app_user_story_edit', [
+                'analysisId' => $analysisId,
+                'storyId' => $storyId
+            ]);
+        }
+    }
 }

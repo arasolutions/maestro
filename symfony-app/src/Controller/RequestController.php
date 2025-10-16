@@ -182,6 +182,11 @@ class RequestController extends AbstractController
                     ['slug' => $currentProjectSlug]
                 );
 
+                // S'assurer que current_project_id est en session
+                if (!$request->getSession()->get('current_project_id')) {
+                    $request->getSession()->set('current_project_id', $projectId);
+                }
+
                 // Créer la request dans la base de données (description brute uniquement)
                 $requestId = Uuid::v4();
 

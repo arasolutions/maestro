@@ -170,29 +170,42 @@
                             {# Test Scenarios #}
                             {% if story.test_scenarios is not empty %}
                             <div class="mb-3">
-                                <details>
-                                    <summary style="cursor: pointer;" class="text-info mb-2">
-                                        <small><i class="bi bi-clipboard-check"></i> Tests ({{ story.test_scenarios|length }})</small>
-                                    </summary>
-                                    <ul class="list-group list-group-flush mt-2">
-                                        {% for scenario in story.test_scenarios %}
-                                        <li class="list-group-item px-0 py-1">
-                                            <small>{{ scenario }}</small>
-                                        </li>
-                                        {% endfor %}
-                                    </ul>
-                                </details>
+                                {% if story.test_scenarios is iterable %}
+                                    {# New format: array of scenarios #}
+                                    <details>
+                                        <summary style="cursor: pointer;" class="text-info mb-2">
+                                            <small><i class="bi bi-clipboard-check"></i> Scénarios de test ({{ story.test_scenarios|length }})</small>
+                                        </summary>
+                                        <ul class="list-group list-group-flush mt-2">
+                                            {% for scenario in story.test_scenarios %}
+                                            <li class="list-group-item px-0 py-1">
+                                                <small>{{ scenario }}</small>
+                                            </li>
+                                            {% endfor %}
+                                        </ul>
+                                    </details>
+                                {% else %}
+                                    {# Old format: just a number #}
+                                    <small class="text-info">
+                                        <i class="bi bi-clipboard-check"></i> {{ story.test_scenarios }} scénarios de test (ancien format)
+                                    </small>
+                                {% endif %}
                             </div>
                             {% endif %}
 
                             {# Footer - pushed to bottom #}
                             <div class="mt-auto pt-2 border-top">
-                                <small class="text-muted">
-                                    <i class="bi bi-file-text"></i>
-                                    <a href="{{ path('app_analysis_detail', {id: story.analysis_id}) }}" class="text-decoration-none">
-                                        Voir l'analyse
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <small class="text-muted">
+                                        <i class="bi bi-file-text"></i>
+                                        <a href="{{ path('app_analysis_detail', {id: story.analysis_id}) }}" class="text-decoration-none">
+                                            Voir l'analyse
+                                        </a>
+                                    </small>
+                                    <a href="{{ path('app_user_story_edit', {analysisId: story.analysis_id, storyId: story.id}) }}" class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-pencil"></i> Éditer
                                     </a>
-                                </small>
+                                </div>
 
                                 {% if story.dependencies is not empty %}
                                 <div class="mt-2">

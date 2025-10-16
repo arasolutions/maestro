@@ -54,6 +54,11 @@ class AnalysisController extends AbstractController
             throw $this->createNotFoundException('Projet introuvable');
         }
 
+        // S'assurer que current_project_id est en session (pour les anciennes sessions)
+        if (!$request->getSession()->get('current_project_id')) {
+            $request->getSession()->set('current_project_id', $project['id']);
+        }
+
         // Build query
         $sql = "SELECT * FROM maestro.analyses WHERE project_id = :projectId";
         $params = ['projectId' => $project['id']];

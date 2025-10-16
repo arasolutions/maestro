@@ -249,4 +249,31 @@ Configure for:
 - Secure API endpoints with authentication
 - Sanitize JSONB data before display
 
+## Symfony UX Turbo
+The application uses Symfony UX Turbo for SPA-like experience. However, some forms need Turbo disabled:
+
+### When to disable Turbo
+Add `data-turbo="false"` attribute to forms that:
+1. **Redirect after POST** - Forms that redirect to another page after submission
+2. **Delete operations** - Forms that delete resources and redirect
+3. **File uploads** - Forms that handle file uploads
+4. **External redirects** - Forms that redirect to external URLs
+
+### Example
+```twig
+{# Form with Turbo disabled #}
+<form method="post" action="{{ path('app_analysis_delete', {id: analysis.id}) }}" data-turbo="false">
+    <input type="hidden" name="_token" value="{{ csrf_token('delete_analysis_' ~ analysis.id) }}">
+    <button type="submit" class="btn btn-danger">Supprimer</button>
+</form>
+```
+
+### Common Error
+If you see this error in the browser console:
+```
+Error: Form responses must redirect to another location
+    at O.requestSucceededWithResponse
+```
+It means Turbo is intercepting a form that redirects. Add `data-turbo="false"` to fix it.
+
 Please create this Symfony application with clean, maintainable code following Symfony best practices and PSR standards.

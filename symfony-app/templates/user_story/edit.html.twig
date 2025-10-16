@@ -1,0 +1,180 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Éditer User Story - {{ project.name }} - MAESTRO{% endblock %}
+
+{% block body %}
+<div class="row mb-4">
+    <div class="col">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ path('app_home') }}">Accueil</a></li>
+                <li class="breadcrumb-item"><a href="{{ path('app_project_user_stories', {projectId: project.id}) }}">User Stories</a></li>
+                <li class="breadcrumb-item active">Éditer {{ story.id }}</li>
+            </ol>
+        </nav>
+        <h1 class="display-6 fw-bold text-primary mb-3">
+            <span style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                Éditer User Story
+            </span>
+        </h1>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <h4 class="mb-0 text-white"><i class="bi bi-pencil"></i> {{ story.id }} - {{ story.title }}</h4>
+            </div>
+            <div class="card-body">
+                <form method="post" action="{{ path('app_user_story_update', {analysisId: analysisId, storyId: story.id}) }}" data-turbo="false">
+                    <input type="hidden" name="_token" value="{{ csrf_token('update_user_story_' ~ story.id) }}">
+
+                    {# Basic Information #}
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h5 class="text-primary mb-3"><i class="bi bi-info-circle"></i> Informations générales</h5>
+                        </div>
+
+                        <div class="col-12 mb-3">
+                            <label for="title" class="form-label">Titre *</label>
+                            <input type="text" class="form-control" id="title" name="title" value="{{ story.title }}" required>
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label for="story_points" class="form-label">Story Points *</label>
+                            <select class="form-select" id="story_points" name="story_points" required>
+                                <option value="1" {{ story.story_points == 1 ? 'selected' : '' }}>1</option>
+                                <option value="2" {{ story.story_points == 2 ? 'selected' : '' }}>2</option>
+                                <option value="3" {{ story.story_points == 3 ? 'selected' : '' }}>3</option>
+                                <option value="5" {{ story.story_points == 5 ? 'selected' : '' }}>5</option>
+                                <option value="8" {{ story.story_points == 8 ? 'selected' : '' }}>8</option>
+                                <option value="13" {{ story.story_points == 13 ? 'selected' : '' }}>13</option>
+                                <option value="21" {{ story.story_points == 21 ? 'selected' : '' }}>21</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label for="priority" class="form-label">Priorité *</label>
+                            <select class="form-select" id="priority" name="priority" required>
+                                <option value="MUST" {{ story.priority == 'MUST' ? 'selected' : '' }}>MUST Have</option>
+                                <option value="SHOULD" {{ story.priority == 'SHOULD' ? 'selected' : '' }}>SHOULD Have</option>
+                                <option value="COULD" {{ story.priority == 'COULD' ? 'selected' : '' }}>COULD Have</option>
+                                <option value="WONT" {{ story.priority == 'WONT' ? 'selected' : '' }}>WON'T Have</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label for="status" class="form-label">Statut *</label>
+                            <select class="form-select" id="status" name="status" required>
+                                <option value="TODO" {{ (story.status|default('TODO')) == 'TODO' ? 'selected' : '' }}>TODO</option>
+                                <option value="IN_PROGRESS" {{ (story.status|default('TODO')) == 'IN_PROGRESS' ? 'selected' : '' }}>IN PROGRESS</option>
+                                <option value="DONE" {{ (story.status|default('TODO')) == 'DONE' ? 'selected' : '' }}>DONE</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    {# User Story Format #}
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h5 class="text-primary mb-3"><i class="bi bi-file-text"></i> User Story</h5>
+                        </div>
+
+                        <div class="col-12 mb-3">
+                            <label for="as_a" class="form-label">En tant que... *</label>
+                            <input type="text" class="form-control" id="as_a" name="as_a" value="{{ story.as_a }}" required placeholder="Ex: utilisateur, administrateur, client...">
+                        </div>
+
+                        <div class="col-12 mb-3">
+                            <label for="i_want" class="form-label">Je veux... *</label>
+                            <textarea class="form-control" id="i_want" name="i_want" rows="2" required placeholder="Action ou fonctionnalité souhaitée">{{ story.i_want }}</textarea>
+                        </div>
+
+                        <div class="col-12 mb-3">
+                            <label for="so_that" class="form-label">Afin de... *</label>
+                            <textarea class="form-control" id="so_that" name="so_that" rows="2" required placeholder="Bénéfice ou valeur attendue">{{ story.so_that }}</textarea>
+                        </div>
+                    </div>
+
+                    {# Acceptance Criteria #}
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h5 class="text-success mb-3"><i class="bi bi-check-circle"></i> Critères d'acceptance</h5>
+                            <label for="acceptance_criteria" class="form-label">Un critère par ligne (format Gherkin recommandé)</label>
+                            <textarea class="form-control" id="acceptance_criteria" name="acceptance_criteria" rows="6" placeholder="GIVEN [contexte] WHEN [action] THEN [résultat]">{{ story.acceptance_criteria|join("\n") }}</textarea>
+                            <small class="text-muted">Exemple: GIVEN un utilisateur connecté WHEN il clique sur "Sauvegarder" THEN les données sont enregistrées</small>
+                        </div>
+                    </div>
+
+                    {# Test Scenarios #}
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h5 class="text-info mb-3"><i class="bi bi-clipboard-check"></i> Scénarios de test</h5>
+                            <label for="test_scenarios" class="form-label">Un scénario par ligne</label>
+                            <textarea class="form-control" id="test_scenarios" name="test_scenarios" rows="4" placeholder="Scénario de test">{{ story.test_scenarios|join("\n") }}</textarea>
+                        </div>
+                    </div>
+
+                    {# Technical Notes & Dependencies #}
+                    <div class="row mb-4">
+                        <div class="col-md-8 mb-3">
+                            <h5 class="text-secondary mb-3"><i class="bi bi-code-square"></i> Notes techniques</h5>
+                            <textarea class="form-control" id="technical_notes" name="technical_notes" rows="3" placeholder="Notes pour les développeurs">{{ story.technical_notes }}</textarea>
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <h5 class="text-warning mb-3"><i class="bi bi-link-45deg"></i> Dépendances</h5>
+                            <label for="dependencies" class="form-label">IDs séparés par virgule</label>
+                            <input type="text" class="form-control" id="dependencies" name="dependencies" value="{{ story.dependencies|join(', ') }}" placeholder="US-001, US-002">
+                        </div>
+                    </div>
+
+                    {# Actions #}
+                    <div class="row">
+                        <div class="col-12">
+                            <hr>
+                            <div class="d-flex justify-content-between">
+                                <a href="{{ path('app_project_user_stories', {projectId: project.id}) }}" class="btn btn-secondary">
+                                    <i class="bi bi-x-circle"></i> Annuler
+                                </a>
+                                <button type="submit" class="btn btn-primary btn-lg">
+                                    <i class="bi bi-check-circle"></i> Enregistrer les modifications
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    {# Sidebar - Context #}
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-header bg-light">
+                <h6 class="mb-0"><i class="bi bi-info-circle"></i> Contexte</h6>
+            </div>
+            <div class="card-body">
+                <p class="mb-2"><strong>Projet:</strong> {{ project.name }}</p>
+                <p class="mb-2"><strong>Analyse:</strong> <a href="{{ path('app_analysis_detail', {id: analysisId}) }}">{{ analysis.request_text|slice(0, 50) }}...</a></p>
+                <p class="mb-0"><strong>ID:</strong> <code>{{ story.id }}</code></p>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-light">
+                <h6 class="mb-0"><i class="bi bi-lightbulb"></i> Conseils</h6>
+            </div>
+            <div class="card-body">
+                <ul class="small mb-0">
+                    <li>Utilisez la méthode INVEST pour de bonnes user stories</li>
+                    <li>Les critères d'acceptance doivent être testables</li>
+                    <li>1 story point ≈ 1 jour de travail pour un dev</li>
+                    <li>Privilégiez les stories MUST/SHOULD pour le MVP</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

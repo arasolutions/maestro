@@ -34,6 +34,13 @@
                                   placeholder="Décrivez votre projet...">{{ description|default('') }}</textarea>
                     </div>
 
+                    <div class="mb-3">
+                        <label for="technical_stack" class="form-label">Stack Technique</label>
+                        <textarea class="form-control" id="technical_stack" name="technical_stack" rows="6"
+                                  placeholder="Ex: PHP 8.2, Symfony 7.3, PostgreSQL 15, React 18, etc.">{{ technical_stack|default('') }}</textarea>
+                        <small class="form-text text-muted">Décrivez les technologies, frameworks, versions, etc. utilisés dans ce projet</small>
+                    </div>
+
                     <div class="d-flex justify-content-between">
                         <a href="{{ path('app_projects_list') }}" class="btn btn-outline-secondary">Annuler</a>
                         <button type="submit" class="btn btn-primary">Créer le Projet</button>

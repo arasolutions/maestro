@@ -16,7 +16,7 @@
             </div>
             <div>
                 <a href="{{ path('app_request_new') }}" class="btn btn-primary">
-                    ➕ Nouvelle Analyse
+                    <i class="bi bi-plus-circle"></i> Nouvelle Analyse
                 </a>
             </div>
         </div>
@@ -213,7 +213,7 @@
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                     <i class="bi bi-x-circle"></i> Annuler
                 </button>
-                <form id="deleteForm" method="post" style="display: inline;">
+                <form id="deleteForm" method="post" style="display: inline;" data-turbo="false">
                     <input type="hidden" name="_token" id="deleteToken" value="">
                     <button type="submit" class="btn btn-danger">
                         <i class="bi bi-trash"></i> Supprimer définitivement

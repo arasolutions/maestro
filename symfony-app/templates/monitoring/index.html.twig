@@ -196,10 +196,10 @@
                         <td>${priorityBadge}</td>
                         <td><small class="text-muted">${timeAgo}</small></td>
                         <td>
-                            <a href="{{ path('app_analysis_detail', {id: 'EXEC_ID'}) }}".replace('EXEC_ID', exec.id)
-                               class="btn btn-sm btn-outline-primary">
-                                Voir
-                            </a>
+                            ${exec.id === exec.request_id ?
+                                `<a href="{{ path('app_request_detail', {id: 'REQ_ID'}) }}".replace('REQ_ID', exec.request_id) class="btn btn-sm btn-outline-primary">Voir requête</a>` :
+                                `<a href="{{ path('app_analysis_detail', {id: 'EXEC_ID'}) }}".replace('EXEC_ID', exec.id) class="btn btn-sm btn-outline-success">Voir analyse</a>`
+                            }
                         </td>
                     </tr>
                 `;
