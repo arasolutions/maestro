@@ -41,6 +41,18 @@
             border-radius: 0 0 8px 8px;
             max-height: 600px;
             overflow-y: auto;
+            background: #272822 !important;
+        }
+
+        code[class*="language-"] {
+            background: #272822 !important;
+        }
+
+        /* Ensure proper colors for code */
+        pre[class*="language-"],
+        code[class*="language-"] {
+            color: #f8f8f2 !important;
+            text-shadow: 0 1px rgba(0, 0, 0, 0.3);
         }
 
         .story-summary {
@@ -188,14 +200,19 @@
         </div>
         {% endfor %}
 
-        {# Regenerate Button #}
+        {# Action Buttons #}
         <div class="text-center mt-4">
-            <form method="post" action="{{ path('app_user_story_generate_code', {analysisId: analysisId, storyId: story.id}) }}" data-turbo="false">
-                <input type="hidden" name="_token" value="{{ csrf_token('generate_code_' ~ story.id) }}">
-                <button type="submit" class="btn btn-warning btn-lg" onclick="return confirm('Êtes-vous sûr de vouloir régénérer le code ? Cela remplacera le code existant.')">
-                    <i class="bi bi-arrow-clockwise"></i> Régénérer le code
-                </button>
-            </form>
+            <div class="btn-group gap-2" role="group">
+                <a href="{{ path('app_user_story_tests', {analysisId: analysisId, storyId: story.id}) }}" class="btn btn-success btn-lg">
+                    <i class="bi bi-clipboard-check"></i> Voir les tests
+                </a>
+                <form method="post" action="{{ path('app_user_story_generate_code', {analysisId: analysisId, storyId: story.id}) }}" data-turbo="false" class="d-inline">
+                    <input type="hidden" name="_token" value="{{ csrf_token('generate_code_' ~ story.id) }}">
+                    <button type="submit" class="btn btn-warning btn-lg" onclick="return confirm('Êtes-vous sûr de vouloir régénérer le code ? Cela remplacera le code existant.')">
+                        <i class="bi bi-arrow-clockwise"></i> Régénérer le code
+                    </button>
+                </form>
+            </div>
         </div>
 
     {% else %}

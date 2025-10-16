@@ -42,7 +42,10 @@
       "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console cache:clear)",
       "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console debug:router app_user_story_generate_code)",
       "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console debug:container n8n --parameters)",
-      "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console debug:container AppServiceN8nService)"
+      "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console debug:container AppServiceN8nService)",
+      "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console doctrine:query:sql \"SELECT COUNT(*) as generated_count FROM maestro.generated_code\")",
+      "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console doctrine:query:sql \"SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_schema = ''maestro'' AND table_name = ''test_scenarios'' ORDER BY ordinal_position\")",
+      "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console doctrine:query:sql \"ALTER TABLE maestro.test_scenarios ADD COLUMN IF NOT EXISTS test_code JSONB, ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT ''PENDING'', ADD COLUMN IF NOT EXISTS coverage INTEGER DEFAULT 0, ADD COLUMN IF NOT EXISTS passed_count INTEGER DEFAULT 0, ADD COLUMN IF NOT EXISTS failed_count INTEGER DEFAULT 0\")"
     ],
     "deny": [],
     "ask": [],

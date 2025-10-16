@@ -1,0 +1,284 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Tests - {{ story.title }}{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-okaidia.min.css">
+    <style>
+        .test-header {
+            background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+            color: white;
+            padding: 1rem;
+            border-radius: 8px 8px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .test-file-card {
+            border: none;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 1.5rem;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .test-type-badge {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-weight: 600;
+        }
+
+        .badge-unit { background: #16a34a; color: white; }
+        .badge-functional { background: #2563eb; color: white; }
+        .badge-fixture { background: #f59e0b; color: white; }
+        .badge-integration { background: #7c3aed; color: white; }
+
+        pre[class*="language-"] {
+            margin: 0;
+            border-radius: 0 0 8px 8px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .story-summary {
+            background: #f8f9fa;
+            border-left: 4px solid #16a34a;
+            padding: 1rem;
+            margin-bottom: 2rem;
+            border-radius: 4px;
+        }
+
+        .no-tests-placeholder {
+            text-align: center;
+            padding: 4rem 2rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 2px dashed #ddd;
+        }
+
+        .stats-card {
+            background: white;
+            border-radius: 8px;
+            padding: 1rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            text-align: center;
+        }
+
+        .scenario-card {
+            background: white;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-left: 4px solid #16a34a;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .scenario-pending { border-left-color: #6b7280; }
+        .scenario-passed { border-left-color: #16a34a; }
+        .scenario-failed { border-left-color: #dc2626; }
+    </style>
+{% endblock %}
+
+{% block body %}
+<div class="container-fluid py-4">
+    {# Breadcrumb Navigation #}
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item">
+                <a href="{{ path('app_project_dashboard', {slug: project.slug}) }}">
+                    <i class="bi bi-house"></i> {{ project.name }}
+                </a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{{ path('app_analysis_detail', {id: analysisId}) }}">
+                    <i class="bi bi-bar-chart"></i> Analyse
+                </a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{{ path('app_project_user_stories', {projectId: project.id}) }}">
+                    <i class="bi bi-list-check"></i> User Stories
+                </a>
+            </li>
+            <# Link to code page #}
+            <li class="breadcrumb-item">
+                <a href="{{ path('app_user_story_code', {analysisId: analysisId, storyId: story.id}) }}">
+                    <i class="bi bi-code-slash"></i> Code
+                </a>
+            </li>
+            <li class="breadcrumb-item active" aria-current="page">Tests</li>
+        </ol>
+    </nav>
+
+    {# User Story Summary #}
+    <div class="story-summary">
+        <h5 class="mb-3">
+            <i class="bi bi-card-text text-success"></i> {{ story.title }}
+        </h5>
+        <div class="row">
+            <div class="col-md-8">
+                <p class="mb-2"><strong>En tant que:</strong> {{ story.as_a }}</p>
+                <p class="mb-2"><strong>Je veux:</strong> {{ story.i_want }}</p>
+                <p class="mb-0"><strong>Afin de:</strong> {{ story.so_that }}</p>
+            </div>
+            <div class="col-md-4 text-end">
+                <span class="badge bg-info">{{ story.priority|default('MEDIUM') }}</span>
+                <span class="badge bg-secondary">{{ story.story_points|default(0) }} points</span>
+            </div>
+        </div>
+    </div>
+
+    {% if hasTests and testScenarios %}
+        {# Statistics Row #}
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <h6 class="text-muted mb-2">Fichiers de test</h6>
+                    <h3 class="text-success mb-0">{{ testScenarios.test_code|length }}</h3>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <h6 class="text-muted mb-2">Type</h6>
+                    <h3 class="mb-0">{{ testScenarios.test_type|upper }}</h3>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <h6 class="text-muted mb-2">Coverage estimé</h6>
+                    <h3 class="mb-0">{{ testScenarios.coverage|default(0) }}%</h3>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <h6 class="text-muted mb-2">Statut</h6>
+                    <h3 class="mb-0">
+                        <span class="badge {% if testScenarios.status == 'PASSED' %}bg-success{% elseif testScenarios.status == 'FAILED' %}bg-danger{% else %}bg-secondary{% endif %}">
+                            {{ testScenarios.status }}
+                        </span>
+                    </h3>
+                </div>
+            </div>
+        </div>
+
+        {# Test Scenarios List #}
+        {% if testScenarios.scenarios is not empty %}
+        <h4 class="mb-3">
+            <i class="bi bi-list-check"></i> Scénarios de test
+        </h4>
+        <div class="row mb-4">
+            {% for scenario in testScenarios.scenarios %}
+            <div class="col-md-6 mb-3">
+                <div class="scenario-card scenario-{{ scenario.status|lower|default('pending') }}">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h6 class="mb-0">{{ scenario.id }}</h6>
+                        <span class="test-type-badge badge-{{ scenario.type }}">{{ scenario.type|upper }}</span>
+                    </div>
+                    <p class="mb-0 text-muted">{{ scenario.description }}</p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {# Generated Test Files #}
+        <h4 class="mb-3">
+            <i class="bi bi-file-earmark-code"></i> Fichiers de test générés
+        </h4>
+
+        {% for file in testScenarios.test_code %}
+        <div class="test-file-card">
+            <div class="test-header">
+                <div>
+                    <h6 class="mb-1">{{ file.filename|default(file.path|split('/')|last) }}</h6>
+                    <small class="opacity-75">
+                        <i class="bi bi-folder"></i> {{ file.path }}
+                    </small>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    {% if file.type == 'unit' %}
+                        <span class="test-type-badge badge-unit">UNIT TEST</span>
+                    {% elseif file.type == 'functional' %}
+                        <span class="test-type-badge badge-functional">FUNCTIONAL TEST</span>
+                    {% elseif file.type == 'fixture' %}
+                        <span class="test-type-badge badge-fixture">FIXTURE</span>
+                    {% elseif file.type == 'integration' %}
+                        <span class="test-type-badge badge-integration">INTEGRATION</span>
+                    {% else %}
+                        <span class="test-type-badge badge-unit">{{ file.type|upper|default('TEST') }}</span>
+                    {% endif %}
+                    {% if file.lines is defined and file.lines %}
+                        <small class="text-white-50">{{ file.lines }} lignes</small>
+                    {% endif %}
+                </div>
+            </div>
+            <pre><code class="language-php">{{ file.content }}</code></pre>
+        </div>
+        {% endfor %}
+
+        {# Regenerate Button #}
+        <div class="text-center mt-4">
+            <form method="post" action="{{ path('app_user_story_generate_tests', {analysisId: analysisId, storyId: story.id}) }}" data-turbo="false">
+                <input type="hidden" name="_token" value="{{ csrf_token('generate_tests_' ~ story.id) }}">
+                <button type="submit" class="btn btn-warning btn-lg" onclick="return confirm('Êtes-vous sûr de vouloir régénérer les tests ? Cela remplacera les tests existants.')">
+                    <i class="bi bi-arrow-clockwise"></i> Régénérer les tests
+                </button>
+            </form>
+        </div>
+
+    {% else %}
+        {# No Tests Generated Yet #}
+        <div class="no-tests-placeholder">
+            <i class="bi bi-clipboard-check text-muted" style="font-size: 4rem;"></i>
+            <h3 class="text-muted mt-3">Aucun test généré pour cette User Story</h3>
+            <p class="text-muted mb-4">
+                Lancez la génération automatique de tests PHPUnit pour créer des tests unitaires et fonctionnels.
+            </p>
+
+            {% if not generatedCode %}
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    Vous devez d'abord <a href="{{ path('app_user_story_code', {analysisId: analysisId, storyId: story.id}) }}" class="alert-link">générer le code</a> avant de créer les tests.
+                </div>
+            {% else %}
+                <form method="post" action="{{ path('app_user_story_generate_tests', {analysisId: analysisId, storyId: story.id}) }}" data-turbo="false">
+                    <input type="hidden" name="_token" value="{{ csrf_token('generate_tests_' ~ story.id) }}">
+                    <button type="submit" class="btn btn-success btn-lg">
+                        <i class="bi bi-magic"></i> Générer les tests automatiquement
+                    </button>
+                </form>
+                <small class="text-muted d-block mt-3">
+                    <i class="bi bi-info-circle"></i>
+                    La génération prend environ 30 secondes. L'Agent TEST analysera le code et générera des tests PHPUnit complets.
+                </small>
+            {% endif %}
+        </div>
+    {% endif %}
+
+    {# Back Button #}
+    <div class="text-center mt-4">
+        <a href="{{ path('app_user_story_code', {analysisId: analysisId, storyId: story.id}) }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Retour au code
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-php.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css">
+    <script>
+        // Apply line numbers to all code blocks
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('pre').forEach(function(pre) {
+                pre.classList.add('line-numbers');
+            });
+            Prism.highlightAll();
+        });
+    </script>
+{% endblock %}

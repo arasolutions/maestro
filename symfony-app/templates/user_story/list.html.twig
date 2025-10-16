@@ -207,11 +207,15 @@
                                     </a>
                                 </div>
 
-                                {# Code Generation Buttons #}
+                                {# Code & Tests Buttons #}
                                 <div class="d-flex gap-2 mb-2">
                                     <a href="{{ path('app_user_story_code', {analysisId: story.analysis_id, storyId: story.id}) }}"
+                                       class="btn btn-sm btn-primary flex-grow-1">
+                                        <i class="bi bi-code-slash"></i> Code
+                                    </a>
+                                    <a href="{{ path('app_user_story_tests', {analysisId: story.analysis_id, storyId: story.id}) }}"
                                        class="btn btn-sm btn-success flex-grow-1">
-                                        <i class="bi bi-code-slash"></i> Voir Code
+                                        <i class="bi bi-clipboard-check"></i> Tests
                                     </a>
                                 </div>
 

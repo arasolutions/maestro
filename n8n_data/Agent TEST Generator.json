@@ -1,0 +1,180 @@
+{
+  "name": "Agent TEST - Test Generator",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "test-generate",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [220, 300],
+      "id": "webhook-test",
+      "name": "Webhook TEST Generator",
+      "webhookId": "test-generator"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "field1",
+              "name": "generated_code_id",
+              "value": "={{ $json.body.generated_code_id }}",
+              "type": "string"
+            },
+            {
+              "id": "field2",
+              "name": "user_story_id",
+              "value": "={{ $json.body.user_story_id }}",
+              "type": "string"
+            },
+            {
+              "id": "field3",
+              "name": "story",
+              "value": "={{ $json.body.story }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [440, 300],
+      "id": "keep-input-test",
+      "name": "Keep Input Data"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT gc.*, us.stories FROM maestro.generated_code gc INNER JOIN maestro.user_stories us ON gc.user_story_id = us.id WHERE gc.id = $1::uuid",
+        "options": {
+          "queryReplacement": "={{ $('Keep Input Data').item.json.generated_code_id }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [660, 300],
+      "id": "fetch-generated-code",
+      "name": "Fetch Generated Code",
+      "credentials": {
+        "postgres": {
+          "id": "LZQHq6vDOsI91G4D",
+          "name": "MAESTRO DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const inputData = $('Keep Input Data').first().json;\nconst codeData = $input.first().json;\nconst story = inputData.story;\n\nconsole.log('=== AGENT TEST ===');\nconsole.log('Story ID:', story.id);\nconsole.log('Code ID:', inputData.generated_code_id);\n\n// Parse code files\nlet codeFiles = [];\ntry {\n  codeFiles = typeof codeData.code_files === 'string' \n    ? JSON.parse(codeData.code_files) \n    : codeData.code_files || [];\n} catch(e) {\n  console.error('Error parsing code_files:', e);\n}\n\n// Parse stories to get the specific one\nlet stories = [];\ntry {\n  stories = typeof codeData.stories === 'string' \n    ? JSON.parse(codeData.stories) \n    : codeData.stories || [];\n} catch(e) {\n  console.error('Error parsing stories:', e);\n}\n\nconst currentStory = stories.find(s => s.id === story.id) || story;\n\nreturn [{\n  json: {\n    generated_code_id: inputData.generated_code_id,\n    user_story_id: inputData.user_story_id,\n    story: currentStory,\n    code_files: codeFiles,\n    framework: codeData.framework || 'Symfony 7',\n    language: codeData.language || 'PHP',\n    \n    // Story details for test generation\n    title: currentStory.title,\n    acceptance_criteria: currentStory.acceptance_criteria || [],\n    test_scenarios: currentStory.test_scenarios || [],\n    \n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, 300],
+      "id": "prepare-test-context",
+      "name": "Prepare TEST Context"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\n\n// Build code context for Gemini\nconst codeContext = data.code_files.map(file => {\n  return `## ${file.filename} (${file.type})\n\\`\\`\\`php\n${file.content}\n\\`\\`\\``;\n}).join('\\n\\n');\n\n// Build the prompt text safely\nconst promptText = `Tu es un expert en tests PHP / PHPUnit / Symfony.\n\n=== USER STORY ===\nID: ${data.story.id}\nTitre: ${data.title}\n\nCritères d'acceptance:\n${(data.acceptance_criteria || []).map((c, i) => `${i+1}. ${c}`).join('\\n')}\n\n=== CODE GÉNÉRÉ ===\n${codeContext}\n\n=== MISSION ===\nGénère des tests PHPUnit complets pour valider ce code.\n\nTu dois créer :\n1. **Tests unitaires** (Unit tests) : Tester la logique métier, les services, les méthodes isolées\n2. **Tests fonctionnels** (Functional tests) : Tester les routes, les formulaires, l'intégration\n3. Couvrir TOUS les critères d'acceptance\n4. Tests basés sur les scénarios de test de la user story\n\nExigences :\n- Utiliser PHPUnit 9+\n- Utiliser WebTestCase pour les tests fonctionnels Symfony\n- Utiliser des fixtures/mocks si nécessaire\n- Tests clairs avec des noms explicites\n- Assertions complètes (status code, contenu, redirections, etc.)\n- Commentaires pour expliquer ce qui est testé\n\nRéponds UNIQUEMENT en JSON avec cette structure:\n{\n  \"unit_tests\": {\n    \"filename\": \"NomTest.php\",\n    \"path\": \"tests/Unit/NomTest.php\",\n    \"content\": \"<?php test code...\"\n  },\n  \"functional_tests\": {\n    \"filename\": \"NomControllerTest.php\",\n    \"path\": \"tests/Functional/NomControllerTest.php\",\n    \"content\": \"<?php test code...\"\n  },\n  \"fixtures\": {\n    \"filename\": \"NomFixtures.php\",\n    \"path\": \"tests/Fixtures/NomFixtures.php\",\n    \"content\": \"<?php fixture code...\"\n  },\n  \"documentation\": \"Description des tests et comment les exécuter\",\n  \"coverage_estimate\": 85,\n  \"test_count\": 12\n}\n\nSi un type de test n'est pas nécessaire, mets null pour sa valeur.`;\n\n// Build proper Gemini API request with API key in URL\nconst apiKey = 'AIzaSyCh8UXpXbf_E-NtkJC5QbMmbUpRw2zKN1M';\nconst geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${apiKey}`;\n\nconst geminiPayload = {\n  contents: [{\n    parts: [{\n      text: promptText\n    }]\n  }],\n  generationConfig: {\n    temperature: 0.7,\n    topK: 40,\n    topP: 0.95,\n    maxOutputTokens: 8192,\n    responseMimeType: \"application/json\"\n  }\n};\n\nreturn [{\n  json: {\n    ...data,\n    gemini_url: geminiUrl,\n    gemini_payload: geminiPayload\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1100, 300],
+      "id": "prepare-gemini-test-prompt",
+      "name": "Prepare Gemini TEST Prompt"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.gemini_url }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.gemini_payload }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1320, 300],
+      "id": "gemini-test-gen",
+      "name": "Gemini TEST Generation"
+    },
+    {
+      "parameters": {
+        "jsCode": "const geminiResponse = $input.first().json;\nconst contextData = $('Prepare Gemini TEST Prompt').first().json;\n\nconsole.log('=== TEST GENERATION RESULT ===');\nconsole.log('User Story ID:', contextData.user_story_id);\n\nlet generatedTests = {};\ntry {\n  const textContent = geminiResponse.candidates[0].content.parts[0].text;\n  generatedTests = JSON.parse(textContent);\n  console.log('✓ Tests generated successfully');\n} catch(e) {\n  console.error('ERROR Parsing Gemini response:', e.message);\n  generatedTests = {\n    unit_tests: null,\n    functional_tests: null,\n    fixtures: null,\n    documentation: 'Erreur lors de la génération des tests: ' + e.message,\n    coverage_estimate: 0,\n    test_count: 0\n  };\n}\n\n// Build test_code array for database\nconst testCode = [];\n\nif (generatedTests.unit_tests) {\n  const content = generatedTests.unit_tests.content || '';\n  testCode.push({\n    path: generatedTests.unit_tests.path || 'tests/Unit/GeneratedTest.php',\n    content: content,\n    type: 'unit',\n    filename: generatedTests.unit_tests.filename || 'GeneratedTest.php',\n    lines: content.split('\\n').length\n  });\n}\n\nif (generatedTests.functional_tests) {\n  const content = generatedTests.functional_tests.content || '';\n  testCode.push({\n    path: generatedTests.functional_tests.path || 'tests/Functional/GeneratedControllerTest.php',\n    content: content,\n    type: 'functional',\n    filename: generatedTests.functional_tests.filename || 'GeneratedControllerTest.php',\n    lines: content.split('\\n').length\n  });\n}\n\nif (generatedTests.fixtures) {\n  const content = generatedTests.fixtures.content || '';\n  testCode.push({\n    path: generatedTests.fixtures.path || 'tests/Fixtures/GeneratedFixtures.php',\n    content: content,\n    type: 'fixture',\n    filename: generatedTests.fixtures.filename || 'GeneratedFixtures.php',\n    lines: content.split('\\n').length\n  });\n}\n\n// Build scenarios array from acceptance criteria\nconst scenarios = (contextData.acceptance_criteria || []).map((criterion, i) => ({\n  id: `TEST-${i+1}`,\n  description: criterion,\n  type: i < 2 ? 'unit' : 'functional',\n  status: 'PENDING'\n}));\n\nconst params = [\n  contextData.user_story_id,\n  'PHPUNIT',\n  JSON.stringify(scenarios),\n  JSON.stringify(testCode),\n  null, // test_data (optionnel)\n  null, // expected_results (optionnel)\n  'PENDING', // status\n  generatedTests.coverage_estimate || 0,\n  0, // passed_count\n  0  // failed_count\n];\n\nreturn [{\n  json: {\n    params,\n    user_story_id: contextData.user_story_id,\n    generated_tests: generatedTests,\n    file_count: testCode.length,\n    test_count: generatedTests.test_count || 0,\n    coverage: generatedTests.coverage_estimate || 0,\n    summary: {\n      unit_tests: generatedTests.unit_tests ? '✓' : '✗',\n      functional_tests: generatedTests.functional_tests ? '✓' : '✗',\n      fixtures: generatedTests.fixtures ? '✓' : '✗'\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1540, 300],
+      "id": "prepare-test-data",
+      "name": "Prepare Test Data"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO maestro.test_scenarios (\n  user_story_id,\n  test_type,\n  scenarios,\n  test_code,\n  test_data,\n  expected_results,\n  status,\n  coverage,\n  passed_count,\n  failed_count\n) VALUES (\n  $1::uuid,\n  $2,\n  $3::jsonb,\n  $4::jsonb,\n  $5::jsonb,\n  $6::jsonb,\n  $7,\n  $8,\n  $9,\n  $10\n) RETURNING id, created_at;",
+        "options": {
+          "queryReplacement": "={{ $json.params }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [1760, 300],
+      "id": "save-test-scenarios",
+      "name": "Save Test Scenarios",
+      "credentials": {
+        "postgres": {
+          "id": "LZQHq6vDOsI91G4D",
+          "name": "MAESTRO DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({\n  status: 'success',\n  agent: 'TEST',\n  message: 'Tests générés avec succès',\n  test_id: $json.id,\n  user_story_id: $('Prepare Test Data').item.json.user_story_id,\n  created_at: $json.created_at,\n  file_count: $('Prepare Test Data').item.json.file_count,\n  test_count: $('Prepare Test Data').item.json.test_count,\n  coverage: $('Prepare Test Data').item.json.coverage,\n  summary: $('Prepare Test Data').item.json.summary\n}, null, 2) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [1980, 300],
+      "id": "respond-test-success",
+      "name": "Respond Success"
+    }
+  ],
+  "connections": {
+    "Webhook TEST Generator": {
+      "main": [[{"node": "Keep Input Data", "type": "main", "index": 0}]]
+    },
+    "Keep Input Data": {
+      "main": [[{"node": "Fetch Generated Code", "type": "main", "index": 0}]]
+    },
+    "Fetch Generated Code": {
+      "main": [[{"node": "Prepare TEST Context", "type": "main", "index": 0}]]
+    },
+    "Prepare TEST Context": {
+      "main": [[{"node": "Prepare Gemini TEST Prompt", "type": "main", "index": 0}]]
+    },
+    "Prepare Gemini TEST Prompt": {
+      "main": [[{"node": "Gemini TEST Generation", "type": "main", "index": 0}]]
+    },
+    "Gemini TEST Generation": {
+      "main": [[{"node": "Prepare Test Data", "type": "main", "index": 0}]]
+    },
+    "Prepare Test Data": {
+      "main": [[{"node": "Save Test Scenarios", "type": "main", "index": 0}]]
+    },
+    "Save Test Scenarios": {
+      "main": [[{"node": "Respond Success", "type": "main", "index": 0}]]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
