@@ -136,15 +136,18 @@
                                         </small>
                                     </td>
                                     <td>
-                                        <div class="btn-group" role="group">
+                                        <div class="d-flex gap-2">
                                             <a href="{{ path('app_analysis_detail', {id: analysis.id}) }}"
                                                class="btn btn-sm btn-outline-primary">
                                                 <i class="bi bi-eye"></i> Détails
                                             </a>
                                             <button type="button"
                                                     class="btn btn-sm btn-outline-danger"
-                                                    onclick="confirmDelete('{{ analysis.id }}', '{{ analysis.request_text|slice(0, 50)|e('js') }}...')">
-                                                <i class="bi bi-trash"></i>
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#deleteModal"
+                                                    data-analysis-id="{{ analysis.id }}"
+                                                    data-analysis-title="{{ analysis.request_text|slice(0, 50) }}...">
+                                                <i class="bi bi-trash"></i> Supprimer
                                             </button>
                                         </div>
                                     </td>
@@ -186,10 +189,40 @@
     </div>
 </div>
 
-{# Hidden delete form #}
-<form id="deleteForm" method="post" style="display: none;">
-    <input type="hidden" name="_token" id="deleteToken" value="">
-</form>
+{# Delete Confirmation Modal #}
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="deleteModalLabel">
+                    <i class="bi bi-exclamation-triangle"></i> Confirmer la suppression
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-3">Êtes-vous sûr de vouloir supprimer cette analyse ?</p>
+                <div class="alert alert-light border">
+                    <strong id="modalAnalysisTitle"></strong>
+                </div>
+                <p class="text-danger mb-0">
+                    <i class="bi bi-exclamation-circle"></i>
+                    <strong>Attention :</strong> Cette action est irréversible et supprimera également tous les cadrages et user stories associés.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle"></i> Annuler
+                </button>
+                <form id="deleteForm" method="post" style="display: inline;">
+                    <input type="hidden" name="_token" id="deleteToken" value="">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash"></i> Supprimer définitivement
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
 
 {# SVG Icons #}
 <svg style="display: none;">
@@ -199,17 +232,24 @@
 </svg>
 
 <script>
-function confirmDelete(analysisId, analysisTitle) {
-    if (confirm('Êtes-vous sûr de vouloir supprimer cette analyse ?\n\n"' + analysisTitle + '"\n\nCette action est irréversible et supprimera également tous les cadrages et user stories associés.')) {
+// Handle delete modal
+const deleteModal = document.getElementById('deleteModal');
+if (deleteModal) {
+    deleteModal.addEventListener('show.bs.modal', function (event) {
+        const button = event.relatedTarget;
+        const analysisId = button.getAttribute('data-analysis-id');
+        const analysisTitle = button.getAttribute('data-analysis-title');
+
+        // Update modal content
+        document.getElementById('modalAnalysisTitle').textContent = analysisTitle;
+
+        // Update form action and CSRF token
         const form = document.getElementById('deleteForm');
         form.action = '{{ path('app_analysis_delete', {id: '__ID__'}) }}'.replace('__ID__', analysisId);
 
-        // Generate CSRF token
         const token = '{{ csrf_token('delete_analysis___ID__') }}'.replace('__ID__', analysisId);
         document.getElementById('deleteToken').value = token;
-
-        form.submit();
-    }
+    });
 }
 </script>
 
