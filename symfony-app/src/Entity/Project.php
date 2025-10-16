@@ -26,6 +26,15 @@ class Project
     #[ORM\Column(type: Types::JSON, nullable: true)]
     private ?array $config = null;
 
+    #[ORM\Column(type: Types::JSON, name: 'project_cadrage', nullable: true)]
+    private ?array $projectCadrage = null;
+
+    #[ORM\Column(name: 'project_cadrage_version', nullable: true)]
+    private ?int $projectCadrageVersion = 1;
+
+    #[ORM\Column(type: Types::DATETIME_MUTABLE, name: 'project_cadrage_updated_at', nullable: true)]
+    private ?\DateTimeInterface $projectCadrageUpdatedAt = null;
+
     #[ORM\Column(type: Types::DATETIME_MUTABLE, name: 'created_at')]
     private ?\DateTimeInterface $createdAt = null;
 
@@ -33,6 +42,7 @@ class Project
     {
         $this->id = Uuid::v4();
         $this->createdAt = new \DateTime();
+        $this->projectCadrageVersion = 1;
     }
 
     public function getId(): ?Uuid
@@ -93,5 +103,51 @@ class Project
     {
         $this->createdAt = $createdAt;
         return $this;
+    }
+
+    public function getProjectCadrage(): ?array
+    {
+        return $this->projectCadrage;
+    }
+
+    public function setProjectCadrage(?array $projectCadrage): static
+    {
+        $this->projectCadrage = $projectCadrage;
+        $this->projectCadrageVersion = ($this->projectCadrageVersion ?? 0) + 1;
+        $this->projectCadrageUpdatedAt = new \DateTime();
+        return $this;
+    }
+
+    public function getProjectCadrageVersion(): ?int
+    {
+        return $this->projectCadrageVersion;
+    }
+
+    public function getProjectCadrageUpdatedAt(): ?\DateTimeInterface
+    {
+        return $this->projectCadrageUpdatedAt;
+    }
+
+    /**
+     * Merge a cadrage proposal into the project cadrage
+     */
+    public function mergeCadrageProposal(array $proposal): static
+    {
+        $current = $this->projectCadrage ?? [];
+
+        // Merge intelligently: new values override old ones
+        $merged = array_merge($current, array_filter($proposal, fn($v) => $v !== null));
+
+        $this->setProjectCadrage($merged);
+
+        return $this;
+    }
+
+    /**
+     * Check if project has a cadrage defined
+     */
+    public function hasCadrage(): bool
+    {
+        return $this->projectCadrage !== null && !empty($this->projectCadrage);
     }
 }

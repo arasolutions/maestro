@@ -79,16 +79,16 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT * FROM maestro.cadrages WHERE id = $1::uuid",
+        "query": "SELECT project_cadrage FROM maestro.projects WHERE id = (SELECT project_id FROM maestro.analyses WHERE id = $1::uuid)",
         "options": {
-          "queryReplacement": "={{ $('Keep Input Data').item.json.cadrage_id }}"
+          "queryReplacement": "={{ $('Keep Input Data').item.json.analysis_id }}"
         }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [-40, 120],
-      "id": "fetch-cadrage",
-      "name": "Fetch Cadrage",
+      "id": "fetch-project-cadrage",
+      "name": "Fetch Project Cadrage",
       "credentials": {
         "postgres": {
           "id": "LZQHq6vDOsI91G4D",
@@ -118,7 +118,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Fusionner les donnees pour Gemini\nconst inputData = $('Keep Input Data').first().json;\nlet cadrageInfo = 'Pas de cadrage disponible';\n\n// Si on a un cadrage, extraire\nif ($('Fetch Cadrage').all().length > 0) {\n  const cadrage = $('Fetch Cadrage').first().json;\n  cadrageInfo = '\\nPerimetre: ' + JSON.stringify(cadrage.perimetre, null, 2) + '\\nArchitecture proposee: ' + JSON.stringify(cadrage.architecture, null, 2) + '\\nEstimation: ' + (cadrage.estimation?.effort_jours || 'N/A') + ' jours\\n';\n}\n\nreturn [{\n  json: {\n    request_text: inputData.request_text,\n    complexity: inputData.complexity,\n    cadrage_info: cadrageInfo,\n    analysis_id: inputData.analysis_id,\n    cadrage_id: inputData.cadrage_id || null\n  }\n}];"
+        "jsCode": "// Fusionner les donnees pour Gemini\nconst inputData = $('Keep Input Data').first().json;\nlet cadrageInfo = 'Pas de cadrage disponible';\n\n// Si le projet a un cadrage, l extraire\nif ($('Fetch Project Cadrage').all().length > 0) {\n  const projectData = $('Fetch Project Cadrage').first().json;\n  if (projectData.project_cadrage) {\n    const cadrage = projectData.project_cadrage;\n    cadrageInfo = '\\nPerimetre: ' + JSON.stringify(cadrage.perimetre, null, 2) + '\\nArchitecture proposee: ' + JSON.stringify(cadrage.architecture, null, 2) + '\\nEstimation: ' + (cadrage.estimation?.effort_jours || 'N/A') + ' jours\\n';\n  }\n}\n\nreturn [{\n  json: {\n    request_text: inputData.request_text,\n    complexity: inputData.complexity,\n    cadrage_info: cadrageInfo,\n    analysis_id: inputData.analysis_id,\n    cadrage_id: inputData.cadrage_id || null\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -204,11 +204,11 @@
     },
     "Has Cadrage?": {
       "main": [
-        [{"node": "Fetch Cadrage", "type": "main", "index": 0}],
+        [{"node": "Fetch Project Cadrage", "type": "main", "index": 0}],
         [{"node": "No Cadrage", "type": "main", "index": 0}]
       ]
     },
-    "Fetch Cadrage": {
+    "Fetch Project Cadrage": {
       "main": [[{"node": "Merge Data for Gemini", "type": "main", "index": 0}]]
     },
     "No Cadrage": {

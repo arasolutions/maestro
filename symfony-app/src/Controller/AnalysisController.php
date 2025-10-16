@@ -2,8 +2,12 @@
 
 namespace App\Controller;
 
+use App\Entity\CadrageProposal;
+use App\Entity\Project;
+use App\Service\CadrageService;
 use App\Service\N8nService;
 use Doctrine\DBAL\Connection;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -14,7 +18,9 @@ class AnalysisController extends AbstractController
 {
     public function __construct(
         private readonly Connection $connection,
-        private readonly N8nService $n8nService
+        private readonly N8nService $n8nService,
+        private readonly EntityManagerInterface $entityManager,
+        private readonly CadrageService $cadrageService
     ) {
     }
 
@@ -110,9 +116,9 @@ class AnalysisController extends AbstractController
             throw $this->createNotFoundException('Analyse introuvable');
         }
 
-        // Récupérer le cadrage associé
+        // Récupérer le cadrage proposal associé
         $cadrage = $this->connection->fetchAssociative(
-            'SELECT * FROM maestro.cadrages WHERE analysis_id = :analysisId',
+            'SELECT * FROM maestro.cadrage_proposals WHERE analysis_id = :analysisId',
             ['analysisId' => $id]
         );
 
@@ -160,11 +166,41 @@ class AnalysisController extends AbstractController
             );
         }
 
+        // Récupérer le projet et son cadrage master
+        $project = null;
+        $projectCadrage = null;
+        $projectEntity = null;
+        $cadrageProposalEntity = null;
+        $diff = null;
+
+        if ($analysis['project_id']) {
+            $project = $this->connection->fetchAssociative(
+                'SELECT * FROM maestro.projects WHERE id = :id',
+                ['id' => $analysis['project_id']]
+            );
+            if ($project && $project['project_cadrage']) {
+                $projectCadrage = json_decode($project['project_cadrage'], true);
+            }
+
+            // Get Project entity and CadrageProposal entity for diff calculation
+            if ($cadrage && $cadrage['status'] === 'PENDING') {
+                $projectEntity = $this->entityManager->getRepository(Project::class)->find(Uuid::fromString($analysis['project_id']));
+                $cadrageProposalEntity = $this->entityManager->getRepository(CadrageProposal::class)->find(Uuid::fromString($cadrage['id']));
+
+                if ($projectEntity && $cadrageProposalEntity) {
+                    $diff = $this->cadrageService->compareCadrages($projectEntity, $cadrageProposalEntity);
+                }
+            }
+        }
+
         return $this->render('analysis/detail.html.twig', [
             'analysis' => $analysis,
             'cadrage' => $cadrage,
             'userStories' => $userStories,
             'request' => $request,
+            'project' => $project,
+            'projectCadrage' => $projectCadrage,
+            'diff' => $diff,
         ]);
     }
 
@@ -245,6 +281,129 @@ class AnalysisController extends AbstractController
         } catch (\Exception $e) {
             $this->addFlash('error', 'Erreur : ' . $e->getMessage());
             return $this->redirectToRoute('app_analysis_detail', ['id' => $id]);
+        }
+    }
+
+    /**
+     * Accept a cadrage proposal and merge it into the project cadrage
+     */
+    #[Route('/analysis/cadrage/{proposalId}/accept', name: 'app_cadrage_accept', methods: ['POST'])]
+    public function acceptCadrage(string $proposalId, Request $request): Response
+    {
+        // Verify CSRF token
+        $token = $request->request->get('_token');
+        if (!$this->isCsrfTokenValid('accept_cadrage_' . $proposalId, $token)) {
+            $this->addFlash('error', 'Token CSRF invalide');
+            return $this->redirectToRoute('app_analyses_list');
+        }
+
+        try {
+            // Get the proposal
+            $proposal = $this->entityManager->getRepository(CadrageProposal::class)->find(Uuid::fromString($proposalId));
+
+            if (!$proposal) {
+                throw $this->createNotFoundException('Proposition de cadrage introuvable');
+            }
+
+            // Get the project
+            $project = $this->entityManager->getRepository(Project::class)->find($proposal->getProjectId());
+
+            if (!$project) {
+                throw $this->createNotFoundException('Projet introuvable');
+            }
+
+            // Accept the proposal
+            $this->cadrageService->acceptCadrageProposal($project, $proposal);
+
+            $this->addFlash('success', 'Proposition de cadrage acceptée et fusionnée avec le cadrage du projet');
+
+            // Redirect back to analysis detail
+            return $this->redirectToRoute('app_analysis_detail', ['id' => $proposal->getAnalysisId()]);
+
+        } catch (\Exception $e) {
+            $this->addFlash('error', 'Erreur lors de l\'acceptation : ' . $e->getMessage());
+            return $this->redirectToRoute('app_analyses_list');
+        }
+    }
+
+    /**
+     * Reject a cadrage proposal
+     */
+    #[Route('/analysis/cadrage/{proposalId}/reject', name: 'app_cadrage_reject', methods: ['POST'])]
+    public function rejectCadrage(string $proposalId, Request $request): Response
+    {
+        // Verify CSRF token
+        $token = $request->request->get('_token');
+        if (!$this->isCsrfTokenValid('reject_cadrage_' . $proposalId, $token)) {
+            $this->addFlash('error', 'Token CSRF invalide');
+            return $this->redirectToRoute('app_analyses_list');
+        }
+
+        try {
+            // Get the proposal
+            $proposal = $this->entityManager->getRepository(CadrageProposal::class)->find(Uuid::fromString($proposalId));
+
+            if (!$proposal) {
+                throw $this->createNotFoundException('Proposition de cadrage introuvable');
+            }
+
+            // Reject the proposal
+            $this->cadrageService->rejectCadrageProposal($proposal);
+
+            $this->addFlash('warning', 'Proposition de cadrage rejetée');
+
+            // Redirect back to analysis detail
+            return $this->redirectToRoute('app_analysis_detail', ['id' => $proposal->getAnalysisId()]);
+
+        } catch (\Exception $e) {
+            $this->addFlash('error', 'Erreur lors du rejet : ' . $e->getMessage());
+            return $this->redirectToRoute('app_analyses_list');
+        }
+    }
+
+    /**
+     * Delete an analysis and all related data (cadrage proposals, user stories)
+     */
+    #[Route('/analysis/{id}/delete', name: 'app_analysis_delete', methods: ['POST'])]
+    public function deleteAnalysis(string $id, Request $request): Response
+    {
+        // Verify CSRF token
+        $token = $request->request->get('_token');
+        if (!$this->isCsrfTokenValid('delete_analysis_' . $id, $token)) {
+            $this->addFlash('error', 'Token CSRF invalide');
+            return $this->redirectToRoute('app_analyses_list');
+        }
+
+        try {
+            // Delete related cadrage proposals
+            $this->connection->executeStatement(
+                'DELETE FROM maestro.cadrage_proposals WHERE analysis_id = :analysisId',
+                ['analysisId' => $id]
+            );
+
+            // Delete related user stories
+            $this->connection->executeStatement(
+                'DELETE FROM maestro.user_stories WHERE analysis_id = :analysisId',
+                ['analysisId' => $id]
+            );
+
+            // Delete the analysis itself
+            $deleted = $this->connection->executeStatement(
+                'DELETE FROM maestro.analyses WHERE id = :id',
+                ['id' => $id]
+            );
+
+            if ($deleted > 0) {
+                $this->addFlash('success', 'Analyse supprimée avec succès');
+            } else {
+                $this->addFlash('warning', 'Aucune analyse trouvée avec cet ID');
+            }
+
+            return $this->redirectToRoute('app_analyses_list');
+
+        } catch (\Exception $e) {
+            $this->addFlash('error', 'Erreur lors de la suppression : ' . $e->getMessage());
+            return $this->redirectToRoute('app_analyses_list');
         }
     }
 }

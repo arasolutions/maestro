@@ -9,7 +9,7 @@
       },
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
-      "position": [-560, 240],
+      "position": [-640, 240],
       "id": "webhook-cadrage",
       "name": "Webhook Cadrage",
       "webhookId": "cadrage-analysis"
@@ -60,9 +60,39 @@
       },
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [-360, 240],
+      "position": [-440, 240],
       "id": "keep-input-cadrage",
       "name": "Keep Input Data"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT project_cadrage FROM maestro.projects WHERE id = $1::uuid",
+        "options": {
+          "queryReplacement": "={{ $('Keep Input Data').item.json.project_id }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [-240, 240],
+      "id": "fetch-project-cadrage",
+      "name": "Fetch Project Cadrage",
+      "credentials": {
+        "postgres": {
+          "id": "LZQHq6vDOsI91G4D",
+          "name": "MAESTRO DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Preparer le contexte pour Gemini\nconst inputData = $('Keep Input Data').first().json;\nlet currentCadrage = 'Aucun cadrage existant - Premiere demande du projet';\n\n// Si le projet a deja un cadrage, l extraire\nif ($('Fetch Project Cadrage').all().length > 0) {\n  const projectData = $('Fetch Project Cadrage').first().json;\n  if (projectData.project_cadrage) {\n    currentCadrage = JSON.stringify(projectData.project_cadrage, null, 2);\n    console.log('Cadrage actuel du projet recupere');\n  }\n}\n\nreturn [{\n  json: {\n    request_text: inputData.request_text,\n    complexity: inputData.complexity,\n    priority: inputData.priority,\n    project_id: inputData.project_id,\n    analysis_id: inputData.analysis_id,\n    current_cadrage: currentCadrage\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-40, 240],
+      "id": "prepare-context",
+      "name": "Prepare Context for Gemini"
     },
     {
       "parameters": {
@@ -70,40 +100,40 @@
         "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=AIzaSyCh8UXpXbf_E-NtkJC5QbMmbUpRw2zKN1M",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": \"Tu es l'Architecte Fonctionnel de MAESTRO, expert en analyse des besoins.\\n\\nDemande à analyser:\\n{{ $('Keep Input Data').item.json.request_text }}\\n\\nComplexité estimée: {{ $('Keep Input Data').item.json.complexity }}\\nPriorité: {{ $('Keep Input Data').item.json.priority }}\\n\\nTa mission:\\n1. Définir le périmètre fonctionnel précis\\n2. Identifier toutes les contraintes (techniques, business, légales)\\n3. Proposer une architecture adaptée\\n4. Lister les prérequis et dépendances\\n5. Estimer les ressources nécessaires\\n6. Créer une matrice SWOT\\n\\nRéponds UNIQUEMENT en JSON:\\n{\\n  \\\"perimetre\\\": {\\n    \\\"objectif_principal\\\": \\\"description claire\\\",\\n    \\\"fonctionnalites_core\\\": [\\\"liste des features essentielles\\\"],\\n    \\\"fonctionnalites_nice_to_have\\\": [\\\"features optionnelles\\\"],\\n    \\\"hors_perimetre\\\": [\\\"ce qui n'est PAS inclus\\\"]\\n  },\\n  \\\"contraintes\\\": {\\n    \\\"techniques\\\": [\\\"technologies, performances, compatibilité\\\"],\\n    \\\"business\\\": [\\\"budget, délais, ROI\\\"],\\n    \\\"securite\\\": [\\\"RGPD, authentification, encryption\\\"],\\n    \\\"integration\\\": [\\\"APIs, systèmes existants\\\"]\\n  },\\n  \\\"architecture\\\": {\\n    \\\"type\\\": \\\"monolithe/microservices/serverless\\\",\\n    \\\"stack_recommande\\\": {\\n      \\\"frontend\\\": \\\"technologies\\\",\\n      \\\"backend\\\": \\\"technologies\\\",\\n      \\\"database\\\": \\\"type et tech\\\",\\n      \\\"infrastructure\\\": \\\"cloud/on-premise\\\"\\n    },\\n    \\\"composants_principaux\\\": [\\\"liste des modules/services\\\"]\\n  },\\n  \\\"swot\\\": {\\n    \\\"forces\\\": [\\\"points forts du projet\\\"],\\n    \\\"faiblesses\\\": [\\\"points faibles à anticiper\\\"],\\n    \\\"opportunites\\\": [\\\"opportunités business\\\"],\\n    \\\"menaces\\\": [\\\"risques identifiés\\\"]\\n  },\\n  \\\"estimation\\\": {\\n    \\\"effort_jours\\\": nombre,\\n    \\\"equipe_ideale\\\": [\\\"profils nécessaires avec quantité\\\"],\\n    \\\"budget_estime\\\": \\\"fourchette en K€\\\",\\n    \\\"phases\\\": [\\n      {\\\"nom\\\": \\\"Phase 1\\\", \\\"duree_jours\\\": nombre, \\\"description\\\": \\\"description\\\"}\\n    ]\\n  }\\n}\"\n    }]\n  }],\n  \"generationConfig\": {\n    \"temperature\": 0.6,\n    \"topK\": 40,\n    \"topP\": 0.95,\n    \"maxOutputTokens\": 2048,\n    \"responseMimeType\": \"application/json\"\n  }\n}",
+        "jsonBody": "={{ {\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": 'Tu es Architecte Fonctionnel de MAESTRO, expert en analyse des besoins.\\n\\nCADRAGE ACTUEL DU PROJET:\\n' + $json.current_cadrage + '\\n\\nNOUVELLE DEMANDE a analyser:\\n' + $json.request_text.replace(/\"/g, \"'\").replace(/\\n/g, \" \") + '\\n\\nComplexite estimee: ' + $json.complexity + '\\nPriorite: ' + $json.priority + '\\n\\nTa mission:\\n1. Si cadrage existant: PROPOSE des AMELIORATIONS ou EXTENSIONS (ne recommence pas de zero)\\n2. Si pas de cadrage: CREE un cadrage complet\\n3. Definis le perimetre fonctionnel precis\\n4. Identifie toutes les contraintes (techniques, business, legales)\\n5. Propose une architecture adaptee\\n6. Liste les prerequis et dependances\\n7. Estime les ressources necessaires\\n8. Cree une matrice SWOT\\n\\nReponds UNIQUEMENT en JSON avec cette structure exacte:\\n{\\n  \"perimetre\": {\\n    \"objectif_principal\": \"description claire\",\\n    \"fonctionnalites_core\": [\"liste des features essentielles\"],\\n    \"fonctionnalites_nice_to_have\": [\"features optionnelles\"],\\n    \"hors_perimetre\": [\"ce qui nest PAS inclus\"]\\n  },\\n  \"contraintes\": {\\n    \"techniques\": [\"technologies, performances, compatibilite\"],\\n    \"business\": [\"budget, delais, ROI\"],\\n    \"securite\": [\"RGPD, authentification, encryption\"],\\n    \"integration\": [\"APIs, systemes existants\"]\\n  },\\n  \"architecture\": {\\n    \"type\": \"monolithe/microservices/serverless\",\\n    \"stack_recommande\": {\\n      \"frontend\": \"technologies\",\\n      \"backend\": \"technologies\",\\n      \"database\": \"type et tech\",\\n      \"infrastructure\": \"cloud/on-premise\"\\n    },\\n    \"composants_principaux\": [\"liste des modules/services\"]\\n  },\\n  \"swot\": {\\n    \"forces\": [\"points forts du projet\"],\\n    \"faiblesses\": [\"points faibles a anticiper\"],\\n    \"opportunites\": [\"opportunites business\"],\\n    \"menaces\": [\"risques identifies\"]\\n  },\\n  \"estimation\": {\\n    \"effort_jours\": 120,\\n    \"equipe_ideale\": [\"profils necessaires avec quantite\"],\\n    \"budget_estime\": \"fourchette en K euros\",\\n    \"phases\": [\\n      {\"nom\": \"Phase 1\", \"duree_jours\": 30, \"description\": \"description\"}\\n    ]\\n  }\\n}'\n    }]\n  }],\n  \"generationConfig\": {\n    \"temperature\": 0.6,\n    \"topK\": 40,\n    \"topP\": 0.95,\n    \"maxOutputTokens\": 3072,\n    \"responseMimeType\": \"application/json\"\n  }\n} }}",
         "options": {
           "timeout": 60000
         }
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-160, 240],
+      "position": [160, 240],
       "id": "gemini-cadrage",
       "name": "Gemini Cadrage Analysis"
     },
     {
       "parameters": {
-        "jsCode": "// Extraire la réponse Gemini\nconst geminiResponse = $input.first().json;\nconst inputData = $('Keep Input Data').first().json;\n\nconsole.log('=== AGENT CADRAGE ===');\nconsole.log('Analysis ID:', inputData.analysis_id);\n\nlet cadrage = {};\ntry {\n  const textContent = geminiResponse.candidates[0].content.parts[0].text;\n  cadrage = JSON.parse(textContent);\n  console.log('✅ Cadrage parsé avec succès');\n  console.log('Effort estimé:', cadrage.estimation?.effort_jours, 'jours');\n} catch(e) {\n  console.error('❌ Erreur parsing Gemini:', e.message);\n  cadrage = {\n    perimetre: {\n      objectif_principal: 'Erreur de parsing',\n      fonctionnalites_core: [],\n      fonctionnalites_nice_to_have: [],\n      hors_perimetre: []\n    },\n    contraintes: {\n      techniques: [],\n      business: [],\n      securite: [],\n      integration: []\n    },\n    architecture: {\n      type: 'N/A',\n      stack_recommande: {},\n      composants_principaux: []\n    },\n    swot: {\n      forces: [],\n      faiblesses: [],\n      opportunites: [],\n      menaces: []\n    },\n    estimation: {\n      effort_jours: 0,\n      equipe_ideale: [],\n      budget_estime: 'N/A',\n      phases: []\n    }\n  };\n}\n\n// Préparer les paramètres pour PostgreSQL\nconst params = [\n  inputData.analysis_id,\n  JSON.stringify(cadrage.perimetre),\n  JSON.stringify(cadrage.contraintes),\n  JSON.stringify(cadrage.architecture),\n  JSON.stringify(cadrage.swot),\n  JSON.stringify(cadrage.estimation),\n  JSON.stringify(cadrage)\n];\n\nreturn [{ \n  json: { \n    params,\n    cadrage,\n    analysis_id: inputData.analysis_id,\n    summary: {\n      effort_jours: cadrage.estimation?.effort_jours || 0,\n      architecture_type: cadrage.architecture?.type || 'N/A',\n      nb_contraintes: Object.values(cadrage.contraintes || {}).flat().length,\n      nb_fonctionnalites: (cadrage.perimetre?.fonctionnalites_core || []).length\n    }\n  }\n}];"
+        "jsCode": "// Extraire la reponse Gemini\nconst geminiResponse = $input.first().json;\nconst contextData = $('Prepare Context for Gemini').first().json;\n\nconsole.log('=== AGENT CADRAGE ===');\nconsole.log('Analysis ID:', contextData.analysis_id);\nconsole.log('Project ID:', contextData.project_id);\n\nlet cadrage = {};\ntry {\n  const textContent = geminiResponse.candidates[0].content.parts[0].text;\n  cadrage = JSON.parse(textContent);\n  console.log('OK Cadrage parse avec succes');\n  console.log('Effort estime:', cadrage.estimation?.effort_jours, 'jours');\n} catch(e) {\n  console.error('ERROR Erreur parsing Gemini:', e.message);\n  cadrage = {\n    perimetre: {\n      objectif_principal: 'Erreur de parsing',\n      fonctionnalites_core: [],\n      fonctionnalites_nice_to_have: [],\n      hors_perimetre: []\n    },\n    contraintes: {\n      techniques: [],\n      business: [],\n      securite: [],\n      integration: []\n    },\n    architecture: {\n      type: 'N/A',\n      stack_recommande: {},\n      composants_principaux: []\n    },\n    swot: {\n      forces: [],\n      faiblesses: [],\n      opportunites: [],\n      menaces: []\n    },\n    estimation: {\n      effort_jours: 0,\n      equipe_ideale: [],\n      budget_estime: 'N/A',\n      phases: []\n    }\n  };\n}\n\n// Preparer les parametres pour PostgreSQL (cadrage_proposals avec project_id)\nconst params = [\n  contextData.analysis_id,\n  contextData.project_id,\n  JSON.stringify(cadrage.perimetre),\n  JSON.stringify(cadrage.contraintes),\n  JSON.stringify(cadrage.architecture),\n  JSON.stringify(cadrage.swot),\n  JSON.stringify(cadrage.estimation),\n  JSON.stringify(cadrage)\n];\n\nreturn [{ \n  json: { \n    params,\n    cadrage,\n    analysis_id: contextData.analysis_id,\n    project_id: contextData.project_id,\n    summary: {\n      effort_jours: cadrage.estimation?.effort_jours || 0,\n      architecture_type: cadrage.architecture?.type || 'N/A',\n      nb_contraintes: Object.values(cadrage.contraintes || {}).flat().length,\n      nb_fonctionnalites: (cadrage.perimetre?.fonctionnalites_core || []).length\n    }\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [40, 240],
+      "position": [360, 240],
       "id": "prepare-cadrage",
       "name": "Prepare Cadrage Data"
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO maestro.cadrages (\n  analysis_id,\n  perimetre,\n  contraintes,\n  architecture,\n  swot,\n  estimation,\n  full_response\n) VALUES (\n  $1::uuid,\n  $2::jsonb,\n  $3::jsonb,\n  $4::jsonb,\n  $5::jsonb,\n  $6::jsonb,\n  $7::jsonb\n) RETURNING id, created_at;",
+        "query": "INSERT INTO maestro.cadrage_proposals (\n  analysis_id,\n  project_id,\n  perimetre,\n  contraintes,\n  architecture,\n  swot,\n  estimation,\n  full_response,\n  status\n) VALUES (\n  $1::uuid,\n  $2::uuid,\n  $3::jsonb,\n  $4::jsonb,\n  $5::jsonb,\n  $6::jsonb,\n  $7::jsonb,\n  $8::jsonb,\n  'PENDING'\n) RETURNING id, created_at;",
         "options": {
           "queryReplacement": "={{ $json.params }}"
         }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [240, 240],
-      "id": "save-cadrage",
-      "name": "Save Cadrage to DB",
+      "position": [560, 240],
+      "id": "save-cadrage-proposal",
+      "name": "Save Cadrage Proposal",
       "credentials": {
         "postgres": {
           "id": "LZQHq6vDOsI91G4D",
@@ -114,7 +144,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({\n  \"status\": \"success\",\n  \"agent\": \"CADRAGE\",\n  \"message\": \"Cadrage architectural complété\",\n  \"cadrage_id\": $json.id,\n  \"analysis_id\": $('Prepare Cadrage Data').item.json.analysis_id,\n  \"created_at\": $json.created_at,\n  \"summary\": $('Prepare Cadrage Data').item.json.summary\n}, null, 2) }}",
+        "responseBody": "={{ JSON.stringify({\n  \"status\": \"success\",\n  \"agent\": \"CADRAGE\",\n  \"message\": \"Cadrage architectural propose (statut: PENDING)\",\n  \"cadrage_id\": $json.id,\n  \"analysis_id\": $('Prepare Cadrage Data').item.json.analysis_id,\n  \"project_id\": $('Prepare Cadrage Data').item.json.project_id,\n  \"created_at\": $json.created_at,\n  \"summary\": $('Prepare Cadrage Data').item.json.summary\n}, null, 2) }}",
         "options": {
           "responseHeaders": {
             "entries": [
@@ -128,7 +158,7 @@
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.4,
-      "position": [440, 240],
+      "position": [760, 240],
       "id": "respond-cadrage",
       "name": "Respond Success"
     }
@@ -138,15 +168,21 @@
       "main": [[{"node": "Keep Input Data", "type": "main", "index": 0}]]
     },
     "Keep Input Data": {
+      "main": [[{"node": "Fetch Project Cadrage", "type": "main", "index": 0}]]
+    },
+    "Fetch Project Cadrage": {
+      "main": [[{"node": "Prepare Context for Gemini", "type": "main", "index": 0}]]
+    },
+    "Prepare Context for Gemini": {
       "main": [[{"node": "Gemini Cadrage Analysis", "type": "main", "index": 0}]]
     },
     "Gemini Cadrage Analysis": {
       "main": [[{"node": "Prepare Cadrage Data", "type": "main", "index": 0}]]
     },
     "Prepare Cadrage Data": {
-      "main": [[{"node": "Save Cadrage to DB", "type": "main", "index": 0}]]
+      "main": [[{"node": "Save Cadrage Proposal", "type": "main", "index": 0}]]
     },
-    "Save Cadrage to DB": {
+    "Save Cadrage Proposal": {
       "main": [[{"node": "Respond Success", "type": "main", "index": 0}]]
     }
   },
