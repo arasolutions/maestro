@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 
+use App\Service\N8nService;
 use Doctrine\DBAL\Connection;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -12,7 +13,8 @@ use Symfony\Component\Uid\Uuid;
 class AnalysisController extends AbstractController
 {
     public function __construct(
-        private readonly Connection $connection
+        private readonly Connection $connection,
+        private readonly N8nService $n8nService
     ) {
     }
 
@@ -149,10 +151,100 @@ class AnalysisController extends AbstractController
             $userStories['dependencies'] = $userStories['dependencies'] ? json_decode($userStories['dependencies'], true) : null;
         }
 
+        // Récupérer la request associée pour vérifier le statut
+        $request = null;
+        if ($analysis['request_id']) {
+            $request = $this->connection->fetchAssociative(
+                'SELECT * FROM maestro.requests WHERE id = :id',
+                ['id' => $analysis['request_id']]
+            );
+        }
+
         return $this->render('analysis/detail.html.twig', [
             'analysis' => $analysis,
             'cadrage' => $cadrage,
             'userStories' => $userStories,
+            'request' => $request,
         ]);
+    }
+
+    /**
+     * Lancer manuellement l'orchestration des agents pour une analyse
+     */
+    #[Route('/analysis/{id}/orchestrate', name: 'app_analysis_orchestrate', methods: ['POST'])]
+    public function orchestrate(string $id, Request $request): Response
+    {
+        // Vérifier le token CSRF
+        $token = $request->request->get('_token');
+        if (!$this->isCsrfTokenValid('orchestrate_analysis_' . $id, $token)) {
+            $this->addFlash('error', 'Token CSRF invalide');
+            return $this->redirectToRoute('app_analysis_detail', ['id' => $id]);
+        }
+
+        try {
+            // Récupérer l'analyse
+            $analysis = $this->connection->fetchAssociative(
+                'SELECT * FROM maestro.analyses WHERE id = :id',
+                ['id' => $id]
+            );
+
+            if (!$analysis) {
+                throw $this->createNotFoundException('Analyse introuvable');
+            }
+
+            // Vérifier qu'il y a une request associée
+            if (!$analysis['request_id']) {
+                $this->addFlash('error', 'Aucune requête associée à cette analyse');
+                return $this->redirectToRoute('app_analysis_detail', ['id' => $id]);
+            }
+
+            // Récupérer la request pour vérifier le statut
+            $requestData = $this->connection->fetchAssociative(
+                'SELECT * FROM maestro.requests WHERE id = :id',
+                ['id' => $analysis['request_id']]
+            );
+
+            if (!$requestData) {
+                $this->addFlash('error', 'Requête associée introuvable');
+                return $this->redirectToRoute('app_analysis_detail', ['id' => $id]);
+            }
+
+            // Vérifier que l'analyse est bien terminée
+            if ($requestData['status'] !== 'COMPLETED') {
+                $this->addFlash('warning', 'L\'analyse doit être terminée avant de lancer l\'orchestration');
+                return $this->redirectToRoute('app_analysis_detail', ['id' => $id]);
+            }
+
+            // Appeler l'orchestrateur n8n
+            try {
+                $response = $this->n8nService->triggerOrchestrator(
+                    $id,
+                    (string) $analysis['request_id'],
+                    (string) $analysis['project_id']
+                );
+
+                $agentsExecuted = $response['agents_executed'] ?? [];
+                $agentsCount = count($agentsExecuted);
+
+                if ($agentsCount > 0) {
+                    $this->addFlash('success', sprintf(
+                        'Orchestration lancée avec succès ! %d agent(s) en cours d\'exécution : %s',
+                        $agentsCount,
+                        implode(', ', $agentsExecuted)
+                    ));
+                } else {
+                    $this->addFlash('info', 'Orchestration lancée, aucun agent supplémentaire requis pour cette analyse');
+                }
+
+            } catch (\Exception $e) {
+                $this->addFlash('error', 'Erreur lors du lancement de l\'orchestration : ' . $e->getMessage());
+            }
+
+            return $this->redirectToRoute('app_analysis_detail', ['id' => $id]);
+
+        } catch (\Exception $e) {
+            $this->addFlash('error', 'Erreur : ' . $e->getMessage());
+            return $this->redirectToRoute('app_analysis_detail', ['id' => $id]);
+        }
     }
 }

@@ -97,6 +97,70 @@ class N8nService
     }
 
     /**
+     * Trigger n8n orchestrator workflow
+     *
+     * @param string $analysisId The analysis ID to orchestrate
+     * @param string $requestId The request ID
+     * @param string $projectId The project ID
+     * @return array Response from n8n webhook
+     * @throws \Exception If the webhook call fails
+     */
+    public function triggerOrchestrator(string $analysisId, string $requestId, string $projectId): array
+    {
+        try {
+            $payload = [
+                'analysis_id' => $analysisId,
+                'request_id' => $requestId,
+                'project_id' => $projectId,
+                'timestamp' => (new \DateTime())->format('c'),
+            ];
+
+            $webhookUrl = $this->n8nWebhookUrl . '/orchestrate';
+
+            $this->logger->info('Triggering n8n orchestrator', [
+                'url' => $webhookUrl,
+                'analysis_id' => $analysisId
+            ]);
+
+            $response = $this->httpClient->request('POST', $webhookUrl, [
+                'json' => $payload,
+                'timeout' => 90,
+                'headers' => [
+                    'Content-Type' => 'application/json',
+                ]
+            ]);
+
+            $statusCode = $response->getStatusCode();
+
+            // Vérifier que la réponse n'est pas vide
+            $responseBody = $response->getContent(false);
+            if (empty($responseBody)) {
+                throw new \Exception(
+                    'Le webhook n8n a retourné une réponse vide (HTTP ' . $statusCode . '). ' .
+                    'Vérifiez que le workflow "Agent Orchestrator" est bien importé et activé dans n8n à l\'URL : ' . $webhookUrl
+                );
+            }
+
+            $content = $response->toArray(false);
+
+            $this->logger->info('n8n orchestrator triggered successfully', [
+                'status_code' => $statusCode,
+                'agents_executed' => $content['agents_executed'] ?? []
+            ]);
+
+            return $content;
+
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to trigger n8n orchestrator', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            throw new \Exception('Failed to trigger n8n orchestrator: ' . $e->getMessage(), 0, $e);
+        }
+    }
+
+    /**
      * Health check for n8n service
      *
      * @return bool True if n8n is reachable

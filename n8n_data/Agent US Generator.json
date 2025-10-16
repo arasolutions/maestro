@@ -3,19 +3,128 @@
     {
       "parameters": {
         "httpMethod": "POST",
-        "path": "generate-us",
+        "path": "user-stories",
         "responseMode": "responseNode",
         "options": {}
       },
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
-      "position": [
-        -336,
-        -176
-      ],
-      "id": "698af445-850c-48e6-a2bc-d4f089980fc2",
-      "name": "Webhook US",
+      "position": [-640, 240],
+      "id": "webhook-us",
+      "name": "Webhook User Stories",
       "webhookId": "us-generator"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "field1",
+              "name": "analysis_id",
+              "value": "={{ $json.body.analysis_id }}",
+              "type": "string"
+            },
+            {
+              "id": "field2",
+              "name": "request_id",
+              "value": "={{ $json.body.request_id }}",
+              "type": "string"
+            },
+            {
+              "id": "field3",
+              "name": "cadrage_id",
+              "value": "={{ $json.body.cadrage_id }}",
+              "type": "string"
+            },
+            {
+              "id": "field4",
+              "name": "request_text",
+              "value": "={{ $json.body.request_text }}",
+              "type": "string"
+            },
+            {
+              "id": "field5",
+              "name": "complexity",
+              "value": "={{ $json.body.complexity }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-440, 240],
+      "id": "keep-input-us",
+      "name": "Keep Input Data"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.cadrage_id }}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-240, 240],
+      "id": "check-cadrage-exists",
+      "name": "Has Cadrage?"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM maestro.cadrages WHERE id = $1::uuid",
+        "options": {
+          "queryReplacement": "={{ [$('Keep Input Data').item.json.cadrage_id] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [-40, 120],
+      "id": "fetch-cadrage",
+      "name": "Fetch Cadrage",
+      "credentials": {
+        "postgres": {
+          "id": "LZQHq6vDOsI91G4D",
+          "name": "MAESTRO DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "field1",
+              "name": "cadrage_info",
+              "value": "=Pas de cadrage disponible - Génération basée uniquement sur la demande",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-40, 360],
+      "id": "no-cadrage",
+      "name": "No Cadrage"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Fusionner les données pour Gemini\nconst inputData = $('Keep Input Data').first().json;\nlet cadrageInfo = 'Pas de cadrage disponible';\n\n// Si on a un cadrage, l'extraire\nif ($('Fetch Cadrage').all().length > 0) {\n  const cadrage = $('Fetch Cadrage').first().json;\n  cadrageInfo = `\nPérimètre: ${JSON.stringify(cadrage.perimetre, null, 2)}\nArchitecture proposée: ${JSON.stringify(cadrage.architecture, null, 2)}\nEstimation: ${cadrage.estimation?.effort_jours || 'N/A'} jours\n`;\n}\n\nreturn [{\n  json: {\n    request_text: inputData.request_text,\n    complexity: inputData.complexity,\n    cadrage_info: cadrageInfo,\n    analysis_id: inputData.analysis_id,\n    cadrage_id: inputData.cadrage_id || null\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [160, 240],
+      "id": "merge-data-us",
+      "name": "Merge Data for Gemini"
     },
     {
       "parameters": {
@@ -23,30 +132,26 @@
         "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=AIzaSyCh8UXpXbf_E-NtkJC5QbMmbUpRw2zKN1M",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": \"Tu es le Product Owner de MAESTRO, expert en rédaction de User Stories Agile.\\n\\nContexte du projet:\\n{{$json.body.request}}\\n\\nInformations du cadrage (si disponible):\\n{{$json.body.cadrage_info || 'Pas de cadrage fourni'}}\\n\\nMission:\\n1. Décomposer en User Stories atomiques (1-5 jours max chacune)\\n2. Format: En tant que... Je veux... Afin de...\\n3. Critères d'acceptance en format Gherkin (Given/When/Then)\\n4. Estimation en story points (Fibonacci: 1,2,3,5,8,13)\\n5. Priorisation MoSCoW (Must/Should/Could/Won't)\\n6. Identifier les dépendances entre stories\\n\\nRéponds UNIQUEMENT en JSON:\\n{\\n  \\\"epic\\\": {\\n    \\\"title\\\": \\\"Titre de l'epic principal\\\",\\n    \\\"goal\\\": \\\"Objectif business\\\"\\n  },\\n  \\\"stories\\\": [\\n    {\\n      \\\"id\\\": \\\"US-001\\\",\\n      \\\"title\\\": \\\"Titre court\\\",\\n      \\\"as_a\\\": \\\"type d'utilisateur\\\",\\n      \\\"i_want\\\": \\\"action souhaitée\\\",\\n      \\\"so_that\\\": \\\"bénéfice attendu\\\",\\n      \\\"acceptance_criteria\\\": [\\n        \\\"GIVEN contexte WHEN action THEN résultat\\\",\\n        \\\"GIVEN autre contexte WHEN autre action THEN autre résultat\\\"\\n      ],\\n      \\\"story_points\\\": 3,\\n      \\\"priority\\\": \\\"MUST\\\",\\n      \\\"dependencies\\\": [],\\n      \\\"technical_notes\\\": \\\"Notes pour les devs\\\",\\n      \\\"test_scenarios\\\": 3\\n    }\\n  ],\\n  \\\"sprint_suggestion\\\": {\\n    \\\"sprint_1\\\": [\\\"US-001\\\", \\\"US-002\\\"],\\n    \\\"sprint_2\\\": [\\\"US-003\\\", \\\"US-004\\\"],\\n    \\\"velocity\\\": 20\\n  },\\n  \\\"metrics\\\": {\\n    \\\"total_points\\\": 45,\\n    \\\"must_have_points\\\": 25,\\n    \\\"should_have_points\\\": 15,\\n    \\\"could_have_points\\\": 5\\n  }\\n}\"\n    }]\n  }],\n  \"generationConfig\": {\n    \"temperature\": 0.7,\n    \"maxOutputTokens\": 4096,\n    \"responseMimeType\": \"application/json\"\n  }\n}",
-        "options": {}
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": \"Tu es le Product Owner de MAESTRO, expert en rédaction de User Stories Agile.\\n\\nContexte du projet:\\n{{ $json.request_text }}\\n\\nComplexité: {{ $json.complexity }}\\n\\nInformations du cadrage:\\n{{ $json.cadrage_info }}\\n\\nMission:\\n1. Décomposer en User Stories atomiques (1-5 jours max chacune)\\n2. Format: En tant que [persona]... Je veux [action]... Afin de [bénéfice]...\\n3. Critères d'acceptance en format Gherkin (Given/When/Then)\\n4. Estimation en story points (Fibonacci: 1,2,3,5,8,13)\\n5. Priorisation MoSCoW (MUST/SHOULD/COULD/WONT)\\n6. Identifier les dépendances entre stories\\n7. Proposer une organisation en sprints\\n\\nRéponds UNIQUEMENT en JSON:\\n{\\n  \\\"epic\\\": {\\n    \\\"title\\\": \\\"Titre de l'epic principal\\\",\\n    \\\"goal\\\": \\\"Objectif business mesurable\\\"\\n  },\\n  \\\"stories\\\": [\\n    {\\n      \\\"id\\\": \\\"US-001\\\",\\n      \\\"title\\\": \\\"Titre court et explicite\\\",\\n      \\\"as_a\\\": \\\"type d'utilisateur/persona\\\",\\n      \\\"i_want\\\": \\\"action/fonctionnalité souhaitée\\\",\\n      \\\"so_that\\\": \\\"bénéfice/valeur attendue\\\",\\n      \\\"acceptance_criteria\\\": [\\n        \\\"GIVEN [contexte initial] WHEN [action utilisateur] THEN [résultat attendu]\\\",\\n        \\\"GIVEN [autre contexte] WHEN [autre action] THEN [autre résultat]\\\"\\n      ],\\n      \\\"story_points\\\": 3,\\n      \\\"priority\\\": \\\"MUST\\\",\\n      \\\"dependencies\\\": [\\\"US-XXX\\\"],\\n      \\\"technical_notes\\\": \\\"Notes pour les développeurs\\\",\\n      \\\"test_scenarios\\\": 3\\n    }\\n  ],\\n  \\\"sprint_suggestion\\\": {\\n    \\\"sprint_1\\\": {\\n      \\\"stories\\\": [\\\"US-001\\\", \\\"US-002\\\"],\\n      \\\"points\\\": 13,\\n      \\\"goal\\\": \\\"Objectif du sprint\\\"\\n    },\\n    \\\"sprint_2\\\": {\\n      \\\"stories\\\": [\\\"US-003\\\", \\\"US-004\\\"],\\n      \\\"points\\\": 15,\\n      \\\"goal\\\": \\\"Objectif du sprint\\\"\\n    },\\n    \\\"velocity_recommandee\\\": 20\\n  },\\n  \\\"metrics\\\": {\\n    \\\"total_points\\\": 45,\\n    \\\"must_have_points\\\": 25,\\n    \\\"should_have_points\\\": 15,\\n    \\\"could_have_points\\\": 5,\\n    \\\"estimated_sprints\\\": 3\\n  }\\n}\"\n    }]\n  }],\n  \"generationConfig\": {\n    \"temperature\": 0.7,\n    \"topK\": 40,\n    \"topP\": 0.95,\n    \"maxOutputTokens\": 4096,\n    \"responseMimeType\": \"application/json\"\n  }\n}",
+        "options": {
+          "timeout": 90000
+        }
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        -144,
-        -176
-      ],
-      "id": "8be26387-7f1f-43cb-a12d-34014d521247",
+      "position": [360, 240],
+      "id": "gemini-us",
       "name": "Gemini US Generation"
     },
     {
       "parameters": {
-        "jsCode": "// Parser la réponse Gemini\nconst geminiResponse = $input.first().json;\nconst requestData = $('Webhook US').first().json.body;\n\nlet userStories = {};\ntry {\n  const textContent = geminiResponse.candidates[0].content.parts[0].text;\n  userStories = JSON.parse(textContent);\n  console.log(`✅ ${userStories.stories?.length || 0} User Stories générées`);\n} catch(e) {\n  console.error(\"❌ Erreur parsing:\", e);\n  userStories = {\n    epic: { title: \"Error\", goal: \"Parse failed\" },\n    stories: [],\n    metrics: { total_points: 0 }\n  };\n}\n\n// Préparer pour la DB\nconst params = [\n  requestData.analysis_id || null,\n  requestData.cadrage_id || null,\n  JSON.stringify(userStories.stories),\n  JSON.stringify(userStories.stories.map(s => s.acceptance_criteria).flat()),\n  userStories.metrics?.total_points || 0,\n  JSON.stringify(userStories.sprint_suggestion || {}),\n  JSON.stringify(userStories.stories.map(s => ({ id: s.id, deps: s.dependencies }))),\n  JSON.stringify(userStories)\n];\n\nreturn [{ \n  json: { \n    params,\n    user_stories: userStories,\n    summary: {\n      total_stories: userStories.stories?.length || 0,\n      total_points: userStories.metrics?.total_points || 0,\n      sprints_needed: Object.keys(userStories.sprint_suggestion || {}).length\n    }\n  }\n}];"
+        "jsCode": "// Parser la réponse Gemini\nconst geminiResponse = $input.first().json;\nconst mergedData = $('Merge Data for Gemini').first().json;\n\nconsole.log('=== AGENT USER STORIES ===');\nconsole.log('Analysis ID:', mergedData.analysis_id);\n\nlet userStories = {};\ntry {\n  const textContent = geminiResponse.candidates[0].content.parts[0].text;\n  userStories = JSON.parse(textContent);\n  console.log(`✅ ${userStories.stories?.length || 0} User Stories générées`);\n  console.log('Total points:', userStories.metrics?.total_points || 0);\n} catch(e) {\n  console.error('❌ Erreur parsing Gemini:', e.message);\n  userStories = {\n    epic: { title: 'Erreur de parsing', goal: 'N/A' },\n    stories: [],\n    sprint_suggestion: {},\n    metrics: { total_points: 0, must_have_points: 0, should_have_points: 0, could_have_points: 0, estimated_sprints: 0 }\n  };\n}\n\n// Préparer pour la DB\nconst params = [\n  mergedData.analysis_id,\n  mergedData.cadrage_id || null,\n  JSON.stringify(userStories.stories),\n  JSON.stringify(userStories.stories.map(s => s.acceptance_criteria).flat()),\n  userStories.metrics?.total_points || 0,\n  JSON.stringify(userStories.sprint_suggestion || {}),\n  JSON.stringify(userStories.stories.map(s => ({ id: s.id, deps: s.dependencies || [] }))),\n  JSON.stringify(userStories)\n];\n\nreturn [{ \n  json: { \n    params,\n    user_stories: userStories,\n    analysis_id: mergedData.analysis_id,\n    summary: {\n      total_stories: userStories.stories?.length || 0,\n      total_points: userStories.metrics?.total_points || 0,\n      must_have: userStories.stories?.filter(s => s.priority === 'MUST').length || 0,\n      estimated_sprints: userStories.metrics?.estimated_sprints || 0\n    }\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        64,
-        -176
-      ],
-      "id": "33d5bcd1-37c8-4f09-9b2b-996d86e87aef",
-      "name": "Process US Data"
+      "position": [560, 240],
+      "id": "prepare-us-data",
+      "name": "Prepare US Data"
     },
     {
       "parameters": {
@@ -58,12 +163,9 @@
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        272,
-        -176
-      ],
-      "id": "55940ac6-5075-44d9-9c0e-d1cb5f54404a",
-      "name": "Save User Stories",
+      "position": [760, 240],
+      "id": "save-us",
+      "name": "Save User Stories to DB",
       "credentials": {
         "postgres": {
           "id": "LZQHq6vDOsI91G4D",
@@ -74,63 +176,55 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({\n  \"status\": \"success\",\n  \"us_id\": $json.id,\n  \"summary\": $('Process US Data').first().json.summary,\n  \"stories\": $('Process US Data').first().json.user_stories.stories.map(s => ({\n    id: s.id,\n    title: s.title,\n    points: s.story_points,\n    priority: s.priority\n  }))\n}) }}",
-        "options": {}
+        "responseBody": "={{ JSON.stringify({\n  \"status\": \"success\",\n  \"agent\": \"US\",\n  \"message\": \"User Stories générées avec succès\",\n  \"us_id\": $json.id,\n  \"analysis_id\": $('Prepare US Data').item.json.analysis_id,\n  \"created_at\": $json.created_at,\n  \"summary\": $('Prepare US Data').item.json.summary,\n  \"stories_preview\": $('Prepare US Data').item.json.user_stories.stories.slice(0, 3).map(s => ({\n    id: s.id,\n    title: s.title,\n    points: s.story_points,\n    priority: s.priority\n  }))\n}, null, 2) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.4,
-      "position": [
-        464,
-        -176
-      ],
-      "id": "1a766568-4c0a-43b2-b3e2-3c0a9ced98b5",
-      "name": "Respond US"
+      "position": [960, 240],
+      "id": "respond-us",
+      "name": "Respond Success"
     }
   ],
   "connections": {
-    "Webhook US": {
+    "Webhook User Stories": {
+      "main": [[{"node": "Keep Input Data", "type": "main", "index": 0}]]
+    },
+    "Keep Input Data": {
+      "main": [[{"node": "Has Cadrage?", "type": "main", "index": 0}]]
+    },
+    "Has Cadrage?": {
       "main": [
-        [
-          {
-            "node": "Gemini US Generation",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{"node": "Fetch Cadrage", "type": "main", "index": 0}],
+        [{"node": "No Cadrage", "type": "main", "index": 0}]
       ]
+    },
+    "Fetch Cadrage": {
+      "main": [[{"node": "Merge Data for Gemini", "type": "main", "index": 0}]]
+    },
+    "No Cadrage": {
+      "main": [[{"node": "Merge Data for Gemini", "type": "main", "index": 0}]]
+    },
+    "Merge Data for Gemini": {
+      "main": [[{"node": "Gemini US Generation", "type": "main", "index": 0}]]
     },
     "Gemini US Generation": {
-      "main": [
-        [
-          {
-            "node": "Process US Data",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{"node": "Prepare US Data", "type": "main", "index": 0}]]
     },
-    "Process US Data": {
-      "main": [
-        [
-          {
-            "node": "Save User Stories",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "Prepare US Data": {
+      "main": [[{"node": "Save User Stories to DB", "type": "main", "index": 0}]]
     },
-    "Save User Stories": {
-      "main": [
-        [
-          {
-            "node": "Respond US",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "Save User Stories to DB": {
+      "main": [[{"node": "Respond Success", "type": "main", "index": 0}]]
     }
   },
   "pinData": {},

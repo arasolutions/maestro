@@ -267,6 +267,74 @@
 </div>
 {% endif %}
 
+{# Orchestration Section #}
+{% if request and request.status == 'COMPLETED' and not cadrage and not userStories %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm border-success">
+            <div class="card-header bg-success bg-opacity-10 border-0 py-3">
+                <h5 class="mb-0 text-dark">🚀 Orchestration des Agents</h5>
+            </div>
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <p class="mb-2"><strong>Analyse terminée !</strong> Vous pouvez maintenant lancer l'orchestration des agents IA.</p>
+                        <p class="text-muted mb-0">
+                            <small>
+                                Agents qui seront lancés :
+                                {% for agent in analysis.agents_needed %}
+                                    <span class="badge bg-primary">{{ agent }}</span>
+                                {% endfor %}
+                                {% if analysis.parallel_possible %}
+                                    <span class="badge bg-info ms-2">⚡ Exécution parallèle</span>
+                                {% else %}
+                                    <span class="badge bg-warning ms-2">⏱️ Exécution séquentielle</span>
+                                {% endif %}
+                            </small>
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <button type="button" class="btn btn-success btn-lg" data-bs-toggle="modal" data-bs-target="#orchestrateModal">
+                            <i class="bi bi-play-circle"></i> Lancer l'Orchestration
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if request and request.status == 'ORCHESTRATING' %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="alert alert-info d-flex align-items-center" role="alert">
+            <div class="spinner-border spinner-border-sm me-3" role="status">
+                <span class="visually-hidden">Chargement...</span>
+            </div>
+            <div>
+                <strong>Orchestration en cours...</strong> Les agents sont en train d'être déployés.
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if request and request.status == 'AGENTS_RUNNING' %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="alert alert-warning d-flex align-items-center" role="alert">
+            <div class="spinner-border spinner-border-sm me-3" role="status">
+                <span class="visually-hidden">Chargement...</span>
+            </div>
+            <div>
+                <strong>Agents en cours d'exécution...</strong> Les résultats apparaîtront bientôt.
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 {# Action Buttons #}
 <div class="row">
     <div class="col-12">
@@ -281,6 +349,45 @@
                 <button class="btn btn-primary" onclick="exportJSON()">
                     💾 Exporter JSON
                 </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Modal de confirmation pour l'orchestration #}
+<div class="modal fade" id="orchestrateModal" tabindex="-1" aria-labelledby="orchestrateModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-success bg-opacity-10">
+                <h5 class="modal-title" id="orchestrateModalLabel">
+                    🚀 Confirmer l'orchestration
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-3">Êtes-vous sûr de vouloir lancer l'orchestration des agents IA ?</p>
+                <div class="alert alert-info mb-0">
+                    <strong>Agents qui seront lancés :</strong>
+                    <ul class="mb-0 mt-2">
+                        {% for agent in analysis.agents_needed %}
+                        <li><span class="badge bg-primary">{{ agent }}</span></li>
+                        {% endfor %}
+                    </ul>
+                    {% if analysis.parallel_possible %}
+                    <p class="mb-0 mt-2"><small>⚡ Les agents seront exécutés en parallèle</small></p>
+                    {% else %}
+                    <p class="mb-0 mt-2"><small>⏱️ Les agents seront exécutés séquentiellement</small></p>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <form method="post" action="{{ path('app_analysis_orchestrate', {id: analysis.id}) }}" class="d-inline">
+                    <input type="hidden" name="_token" value="{{ csrf_token('orchestrate_analysis_' ~ analysis.id) }}">
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-play-circle"></i> Confirmer et lancer
+                    </button>
+                </form>
             </div>
         </div>
     </div>

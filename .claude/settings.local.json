@@ -1,23 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(\"/c/wamp64-v3/bin/php/php8.2.26/php.exe\" bin/console doctrine:query:sql \"CREATE INDEX idx_requests_status ON maestro.requests(status)\")",
-      "Bash(\"/c/wamp64-v3/bin/php/php8.2.26/php.exe\" bin/console doctrine:query:sql \"CREATE INDEX idx_requests_created_at ON maestro.requests(created_at DESC)\")",
-      "Bash(\"/c/wamp64-v3/bin/php/php8.2.26/php.exe\" bin/console doctrine:query:sql \"CREATE INDEX idx_requests_project_id ON maestro.requests(project_id)\")",
-      "Bash(\"/c/wamp64-v3/bin/php/php8.2.26/php.exe\" bin/console doctrine:query:sql \"ALTER TABLE maestro.analyses ADD COLUMN IF NOT EXISTS request_id UUID REFERENCES maestro.requests(id) ON DELETE CASCADE\")",
-      "Bash(\"/c/wamp64-v3/bin/php/php8.2.26/php.exe\" bin/console doctrine:query:sql \"CREATE INDEX IF NOT EXISTS idx_analyses_request_id ON maestro.analyses(request_id)\")",
-      "Bash(\"/c/wamp64-v3/bin/php/php8.2.26/php.exe\" bin/console doctrine:query:sql \"SELECT table_name, column_name, data_type FROM information_schema.columns WHERE table_schema = ''maestro'' AND table_name = ''requests'' ORDER BY ordinal_position\")",
-      "Bash(\"/c/wamp64-v3/bin/php/php8.2.26/php.exe\" bin/console cache:clear)",
-      "Bash(composer:*)",
-      "Bash(\"/c/wamp64-v3/bin/php/php8.2.26/php.exe\" /c/ProgramData/ComposerSetup/bin/composer.phar require symfony/uid)",
-      "Bash(where composer)",
-      "Bash(\"/c/wamp64-v3/bin/php/php8.2.26/php.exe\" C:/composer/composer require symfony/uid)",
-      "Bash(\"/c/wamp64-v3/bin/php/php8.2.26/php.exe\" C:/composer/composer.phar require symfony/uid)",
-      "Bash(\"/c/wamp64-v3/bin/php/php8.2.26/php.exe\" bin/console debug:router app_request_new)",
-      "Bash(\"/c/wamp64-v3/bin/php/php8.2.26/php.exe\" bin/console debug:container n8n --parameters)",
-      "Bash(\"/c/wamp64-v3/bin/php/php8.2.26/php.exe\" bin/console debug:container App\\Service\\N8nService)",
-      "Bash(curl -I https://n8n.maestro.ara-solutions.cloud/webhook/analyze)",
-      "Bash(\"/c/wamp64-v3/bin/php/php8.2.26/php.exe\" bin/console doctrine:query:sql \"ALTER TABLE maestro.requests DROP COLUMN IF EXISTS request_type, DROP COLUMN IF EXISTS priority\")"
+      "Bash(curl -X POST \"https://n8n.maestro.ara-solutions.cloud/webhook/orchestrate\" -H \"Content-Type: application/json\" -d '{\"\"\"\"analysis_id\"\"\"\":\"\"\"\"080076c2-da78-4d85-add4-8dc6bf108d08\"\"\"\",\"\"\"\"request_id\"\"\"\":\"\"\"\"8056ffb9-0fcb-4e81-acd9-554ca6678ce8\"\"\"\",\"\"\"\"project_id\"\"\"\":\"\"\"\"d7ac8d27-1c0d-41cb-99b5-c7e79b0d7089\"\"\"\"}')",
+      "Bash(curl -X POST https://n8n.maestro.ara-solutions.cloud/webhook/orchestrate -H \"Content-Type: application/json\" -d \"{\"\"analysis_id\"\":\"\"080076c2-da78-4d85-add4-8dc6bf108d08\"\",\"\"request_id\"\":\"\"8056ffb9-0fcb-4e81-acd9-554ca6678ce8\"\",\"\"project_id\"\":\"\"d7ac8d27-1c0d-41cb-99b5-c7e79b0d7089\"\"}\")"
     ],
     "deny": [],
     "ask": [],
