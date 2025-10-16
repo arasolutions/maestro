@@ -61,7 +61,8 @@ class GiteaController extends AbstractController
             );
 
             if (!$repoResult || !$repoResult['success']) {
-                throw new \Exception('Échec de la création du dépôt Gitea');
+                $errorMsg = isset($repoResult['error']) ? $repoResult['error'] : 'Échec de la création du dépôt Gitea';
+                throw new \Exception($errorMsg);
             }
 
             // Generate webhook secret

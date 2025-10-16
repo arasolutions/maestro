@@ -34,66 +34,66 @@
                         <small class="form-text text-muted">Décrivez les technologies, frameworks, versions, etc. utilisés dans ce projet</small>
                     </div>
 
-                    <hr class="my-4">
-                    <h6 class="text-muted mb-3">🔗 Dépôt Gitea</h6>
-
-                    {% if project.gitea_repo_id %}
-                        <div class="card border-0 shadow-sm bg-light">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-center mb-3">
-                                    <div>
-                                        <h6 class="mb-1 text-success">✓ Dépôt Gitea Configuré</h6>
-                                        <small class="text-muted">{{ project.gitea_repo_name }}</small>
-                                    </div>
-                                    <a href="{{ project.gitea_repo_url }}" target="_blank" class="btn btn-sm btn-outline-primary">
-                                        Ouvrir dans Gitea →
-                                    </a>
-                                </div>
-                                <div class="row g-2">
-                                    <div class="col-12">
-                                        <small class="text-muted d-block">URL du dépôt:</small>
-                                        <code class="d-block">{{ project.gitea_repo_url }}</code>
-                                    </div>
-                                    <div class="col-12">
-                                        <small class="text-muted d-block">Clone HTTPS:</small>
-                                        <code class="d-block">git clone {{ project.gitea_repo_url }}.git</code>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    {% else %}
-                        <div class="card border-0 shadow-sm bg-light">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <h6 class="mb-1 text-warning">⚠️ Dépôt Gitea Non Initialisé</h6>
-                                        <small class="text-muted">Créez un dépôt Gitea pour ce projet afin d'activer le workflow CI/CD</small>
-                                    </div>
-                                    <form method="post" action="{{ path('app_gitea_init', {slug: project.slug}) }}" data-turbo="false" class="d-inline">
-                                        <input type="hidden" name="_token" value="{{ csrf_token('gitea_init_' ~ project.slug) }}">
-                                        <button type="submit" class="btn btn-primary">
-                                            🚀 Initialiser le Dépôt Gitea
-                                        </button>
-                                    </form>
-                                </div>
-                                <div class="alert alert-info mt-3 mb-0">
-                                    <strong>Ce qui sera créé:</strong>
-                                    <ul class="mb-0 mt-2">
-                                        <li>Un dépôt privé dans l'organisation <code>maestro</code></li>
-                                        <li>Un fichier README.md initial avec les infos du projet</li>
-                                        <li>Un webhook vers n8n pour la CI/CD</li>
-                                        <li>Configuration .gitignore Symfony</li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
-                    {% endif %}
-
                     <div class="d-flex justify-content-between">
                         <a href="{{ path('app_projects_list') }}" class="btn btn-outline-secondary">Annuler</a>
                         <button type="submit" class="btn btn-primary">Enregistrer</button>
                     </div>
                 </form>
+
+                <hr class="my-4">
+                <h6 class="text-muted mb-3">🔗 Dépôt Gitea</h6>
+
+                {% if project.gitea_repo_id %}
+                    <div class="card border-0 shadow-sm bg-light">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div>
+                                    <h6 class="mb-1 text-success">✓ Dépôt Gitea Configuré</h6>
+                                    <small class="text-muted">{{ project.gitea_repo_name }}</small>
+                                </div>
+                                <a href="{{ project.gitea_repo_url }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                    Ouvrir dans Gitea →
+                                </a>
+                            </div>
+                            <div class="row g-2">
+                                <div class="col-12">
+                                    <small class="text-muted d-block">URL du dépôt:</small>
+                                    <code class="d-block">{{ project.gitea_repo_url }}</code>
+                                </div>
+                                <div class="col-12">
+                                    <small class="text-muted d-block">Clone HTTPS:</small>
+                                    <code class="d-block">git clone {{ project.gitea_repo_url }}.git</code>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="card border-0 shadow-sm bg-light">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1 text-warning">⚠️ Dépôt Gitea Non Initialisé</h6>
+                                    <small class="text-muted">Créez un dépôt Gitea pour ce projet afin d'activer le workflow CI/CD</small>
+                                </div>
+                                <form method="post" action="{{ path('app_gitea_init', {slug: project.slug}) }}" class="d-inline" data-turbo="false">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('gitea_init_' ~ project.slug) }}">
+                                    <button type="submit" class="btn btn-primary">
+                                        🚀 Initialiser le Dépôt Gitea
+                                    </button>
+                                </form>
+                            </div>
+                            <div class="alert alert-info mt-3 mb-0">
+                                <strong>Ce qui sera créé:</strong>
+                                <ul class="mb-0 mt-2">
+                                    <li>Un dépôt privé dans l'organisation <code>maestro</code></li>
+                                    <li>Un fichier README.md initial avec les infos du projet</li>
+                                    <li>Un webhook vers n8n pour la CI/CD</li>
+                                    <li>Configuration .gitignore Symfony</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
             </div>
         </div>
     </div>

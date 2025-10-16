@@ -70,9 +70,15 @@ class GiteaService
         } catch (\Exception $e) {
             $this->logger->error('Failed to create Gitea repository', [
                 'error' => $e->getMessage(),
-                'project' => $projectName
+                'project' => $projectName,
+                'trace' => $e->getTraceAsString()
             ]);
-            return null;
+
+            // Return error details instead of null
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
         }
     }
 
