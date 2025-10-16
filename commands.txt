@@ -1,1 +1,4 @@
 #Installation
+
+Maintenant, vous pouvez simplement lancer .\start.bat depuis le dossier symfony-app.
+

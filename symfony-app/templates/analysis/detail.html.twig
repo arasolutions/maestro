@@ -1,62 +1,59 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Analyse {{ analysis.id|slice(0, 8) }} - MAESTRO{% endblock %}
+{% block title %}Détail Analyse - MAESTRO{% endblock %}
 
 {% block body %}
+{# Header #}
 <div class="row mb-4">
     <div class="col">
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="{{ path('app_dashboard') }}">Dashboard</a></li>
-                <li class="breadcrumb-item active">Analyse {{ analysis.id|slice(0, 8) }}</li>
+                <li class="breadcrumb-item"><a href="{{ path('app_home') }}">Accueil</a></li>
+                <li class="breadcrumb-item"><a href="{{ path('app_analyses_list') }}">Analyses</a></li>
+                <li class="breadcrumb-item active">Détail</li>
             </ol>
         </nav>
-        <h1 class="display-6 fw-bold">Détail de l'Analyse</h1>
+        <h1 class="display-6 fw-bold text-primary mb-3">
+            <span style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                Analyse Détaillée
+            </span>
+        </h1>
     </div>
 </div>
 
-{# En-tête de l'analyse #}
+{# Main Analysis Card #}
 <div class="row mb-4">
     <div class="col-12">
         <div class="card border-0 shadow-sm">
+            <div class="card-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <h4 class="mb-0 text-white">📋 Requête d'Analyse</h4>
+            </div>
             <div class="card-body">
                 <div class="row">
                     <div class="col-md-8">
-                        <h5 class="card-title">Requête</h5>
-                        <p class="lead">{{ analysis.request_text }}</p>
+                        <h5 class="text-dark">{{ analysis.request_text }}</h5>
+                        <p class="text-muted">
+                            <small>Créé le {{ analysis.created_at|date('d/m/Y à H:i') }}</small>
+                        </p>
                     </div>
-                    <div class="col-md-4">
-                        <div class="mb-3">
-                            <strong>Type :</strong>
-                            <span class="badge bg-primary">{{ analysis.analysis_type }}</span>
+                    <div class="col-md-4 text-end">
+                        <div class="mb-2">
+                            <strong>Type:</strong>
+                            <span class="badge bg-{{ analysis.analysis_type == 'FEATURE' ? 'primary' : (analysis.analysis_type == 'BUG' ? 'danger' : 'info') }}">
+                                {{ analysis.analysis_type|default('N/A') }}
+                            </span>
                         </div>
-                        <div class="mb-3">
-                            <strong>Complexité :</strong>
+                        <div class="mb-2">
+                            <strong>Complexité:</strong>
                             <span class="badge bg-{{ analysis.complexity == 'XS' ? 'success' : (analysis.complexity == 'S' ? 'info' : (analysis.complexity == 'M' ? 'warning' : 'danger')) }}">
-                                {{ analysis.complexity }}
+                                {{ analysis.complexity|default('N/A') }}
                             </span>
                         </div>
-                        <div class="mb-3">
-                            <strong>Priorité :</strong>
-                            <span class="badge bg-{{ analysis.priority == 'CRITICAL' ? 'danger' : (analysis.priority == 'HIGH' ? 'warning' : (analysis.priority == 'MEDIUM' ? 'info' : 'secondary')) }}">
-                                {{ analysis.priority }}
+                        <div class="mb-2">
+                            <strong>Priorité:</strong>
+                            <span class="badge bg-{{ analysis.priority == 'CRITICAL' ? 'danger' : (analysis.priority == 'HIGH' ? 'warning' : 'info') }}">
+                                {{ analysis.priority|default('N/A') }}
                             </span>
-                        </div>
-                        <div class="mb-3">
-                            <strong>Confiance :</strong>
-                            <div class="progress" style="height: 25px;">
-                                <div class="progress-bar bg-{{ analysis.confidence >= 0.8 ? 'success' : (analysis.confidence >= 0.6 ? 'info' : 'warning') }}"
-                                     role="progressbar"
-                                     style="width: {{ (analysis.confidence * 100)|round }}%">
-                                    {{ (analysis.confidence * 100)|round }}%
-                                </div>
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <strong>Heures estimées :</strong> {{ analysis.estimated_hours ?? 'N/A' }}h
-                        </div>
-                        <div>
-                            <small class="text-muted">Créé le {{ analysis.created_at|date('d/m/Y à H:i') }}</small>
                         </div>
                     </div>
                 </div>
@@ -65,18 +62,67 @@
     </div>
 </div>
 
-{# Agents nécessaires #}
-{% if analysis.agents_needed %}
+{# Metrics Row #}
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body text-center">
+                <h6 class="text-muted">Confiance IA</h6>
+                <h2 class="text-{{ analysis.confidence >= 0.8 ? 'success' : (analysis.confidence >= 0.6 ? 'info' : 'warning') }}">
+                    {{ (analysis.confidence * 100)|round }}%
+                </h2>
+                <div class="progress" style="height: 8px;">
+                    <div class="progress-bar bg-{{ analysis.confidence >= 0.8 ? 'success' : (analysis.confidence >= 0.6 ? 'info' : 'warning') }}"
+                         style="width: {{ (analysis.confidence * 100)|round }}%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body text-center">
+                <h6 class="text-muted">Heures Estimées</h6>
+                <h2 class="text-dark">{{ analysis.estimated_hours|default('N/A') }}h</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body text-center">
+                <h6 class="text-muted">Agents Nécessaires</h6>
+                <h2 class="text-dark">{{ analysis.agents_needed|length }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body text-center">
+                <h6 class="text-muted">Parallélisation</h6>
+                <h2 class="text-dark">{{ analysis.parallel_possible ? '✓ Oui' : '✗ Non' }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Agents Needed #}
+{% if analysis.agents_needed is not empty %}
 <div class="row mb-4">
     <div class="col-12">
         <div class="card border-0 shadow-sm">
-            <div class="card-header bg-white">
-                <h5 class="mb-0">Agents IA Nécessaires</h5>
+            <div class="card-header bg-white border-0 py-3">
+                <h5 class="mb-0 text-dark">🤖 Agents IA Nécessaires</h5>
             </div>
             <div class="card-body">
-                <div class="d-flex flex-wrap gap-2">
+                <div class="row g-3">
                     {% for agent in analysis.agents_needed %}
-                        <span class="badge bg-info fs-6 px-3 py-2">{{ agent }}</span>
+                    <div class="col-md-4">
+                        <div class="border rounded p-3 h-100 bg-light">
+                            <div class="d-flex align-items-center mb-2">
+                                <span class="badge bg-primary me-2">{{ loop.index }}</span>
+                                <strong>{{ agent }}</strong>
+                            </div>
+                        </div>
+                    </div>
                     {% endfor %}
                 </div>
             </div>
@@ -85,35 +131,38 @@
 </div>
 {% endif %}
 
-{# Prochaines étapes #}
-{% if analysis.next_steps %}
+{# Next Steps and Risks #}
 <div class="row mb-4">
-    <div class="col-md-6">
+    {% if analysis.next_steps is not empty %}
+    <div class="col-md-{{ analysis.risks is not empty ? '6' : '12' }}">
         <div class="card border-0 shadow-sm h-100">
-            <div class="card-header bg-white">
-                <h5 class="mb-0">Prochaines Étapes</h5>
+            <div class="card-header bg-white border-0 py-3">
+                <h5 class="mb-0 text-dark">📝 Prochaines Étapes</h5>
             </div>
             <div class="card-body">
-                <ol class="mb-0">
+                <ol class="list-group list-group-numbered">
                     {% for step in analysis.next_steps %}
-                        <li class="mb-2">{{ step }}</li>
+                    <li class="list-group-item border-0 px-0">{{ step }}</li>
                     {% endfor %}
                 </ol>
             </div>
         </div>
     </div>
+    {% endif %}
 
-    {# Risques #}
-    {% if analysis.risks %}
-    <div class="col-md-6">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-header bg-white">
-                <h5 class="mb-0">Risques Identifiés</h5>
+    {% if analysis.risks is not empty %}
+    <div class="col-md-{{ analysis.next_steps is not empty ? '6' : '12' }}">
+        <div class="card border-0 shadow-sm border-warning h-100">
+            <div class="card-header bg-warning bg-opacity-10 border-0 py-3">
+                <h5 class="mb-0 text-dark">⚠️ Risques Identifiés</h5>
             </div>
             <div class="card-body">
-                <ul class="mb-0">
+                <ul class="list-group list-group-flush">
                     {% for risk in analysis.risks %}
-                        <li class="mb-2 text-warning">{{ risk }}</li>
+                    <li class="list-group-item border-0 px-0">
+                        <span class="badge bg-warning text-dark me-2">!</span>
+                        {{ risk }}
+                    </li>
                     {% endfor %}
                 </ul>
             </div>
@@ -121,64 +170,141 @@
     </div>
     {% endif %}
 </div>
-{% endif %}
 
-{# Cadrage #}
+{# Cadrage Section #}
 {% if cadrage %}
 <div class="row mb-4">
     <div class="col-12">
         <div class="card border-0 shadow-sm">
-            <div class="card-header bg-white">
-                <h5 class="mb-0">📐 Cadrage Architectural</h5>
+            <div class="card-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <h4 class="mb-0 text-white">🎯 Cadrage Architectural</h4>
             </div>
             <div class="card-body">
-                {% if cadrage.perimetre %}
-                    <h6 class="fw-bold">Périmètre</h6>
-                    <pre class="bg-light p-3 rounded">{{ cadrage.perimetre|json_encode(constant('JSON_PRETTY_PRINT')) }}</pre>
-                {% endif %}
+                <div class="row">
+                    {% if cadrage.perimetre %}
+                    <div class="col-md-6 mb-4">
+                        <h6 class="text-primary mb-3">📐 Périmètre</h6>
+                        <div class="border rounded p-3 bg-light">
+                            <pre class="mb-0" style="white-space: pre-wrap;">{{ cadrage.perimetre|json_encode(constant('JSON_PRETTY_PRINT')) }}</pre>
+                        </div>
+                    </div>
+                    {% endif %}
 
-                {% if cadrage.architecture %}
-                    <h6 class="fw-bold mt-3">Architecture</h6>
-                    <pre class="bg-light p-3 rounded">{{ cadrage.architecture|json_encode(constant('JSON_PRETTY_PRINT')) }}</pre>
-                {% endif %}
+                    {% if cadrage.contraintes %}
+                    <div class="col-md-6 mb-4">
+                        <h6 class="text-warning mb-3">⚡ Contraintes</h6>
+                        <div class="border rounded p-3 bg-light">
+                            <pre class="mb-0" style="white-space: pre-wrap;">{{ cadrage.contraintes|json_encode(constant('JSON_PRETTY_PRINT')) }}</pre>
+                        </div>
+                    </div>
+                    {% endif %}
 
-                {% if cadrage.swot %}
-                    <h6 class="fw-bold mt-3">Analyse SWOT</h6>
-                    <pre class="bg-light p-3 rounded">{{ cadrage.swot|json_encode(constant('JSON_PRETTY_PRINT')) }}</pre>
-                {% endif %}
+                    {% if cadrage.architecture %}
+                    <div class="col-md-12 mb-4">
+                        <h6 class="text-info mb-3">🏗️ Architecture Proposée</h6>
+                        <div class="border rounded p-3 bg-light">
+                            <pre class="mb-0" style="white-space: pre-wrap;">{{ cadrage.architecture|json_encode(constant('JSON_PRETTY_PRINT')) }}</pre>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if cadrage.swot %}
+                    <div class="col-md-12 mb-4">
+                        <h6 class="text-success mb-3">📊 Analyse SWOT</h6>
+                        <div class="border rounded p-3 bg-light">
+                            <pre class="mb-0" style="white-space: pre-wrap;">{{ cadrage.swot|json_encode(constant('JSON_PRETTY_PRINT')) }}</pre>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
             </div>
         </div>
     </div>
 </div>
 {% endif %}
 
-{# User Stories #}
+{# User Stories Section #}
 {% if userStories %}
 <div class="row mb-4">
     <div class="col-12">
         <div class="card border-0 shadow-sm">
-            <div class="card-header bg-white">
-                <h5 class="mb-0">📝 User Stories ({{ userStories.story_points ?? 0 }} points)</h5>
+            <div class="card-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <h4 class="mb-0 text-white">📖 User Stories</h4>
             </div>
             <div class="card-body">
                 {% if userStories.stories %}
-                    <pre class="bg-light p-3 rounded">{{ userStories.stories|json_encode(constant('JSON_PRETTY_PRINT')) }}</pre>
-                {% else %}
-                    <p class="text-muted">Aucune user story générée pour le moment.</p>
+                <div class="mb-4">
+                    <h6 class="text-primary mb-3">Stories Générées</h6>
+                    <div class="border rounded p-3 bg-light">
+                        <pre class="mb-0" style="white-space: pre-wrap;">{{ userStories.stories|json_encode(constant('JSON_PRETTY_PRINT')) }}</pre>
+                    </div>
+                </div>
                 {% endif %}
+
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="text-center p-3 border rounded bg-light">
+                            <h6 class="text-muted">Story Points</h6>
+                            <h3 class="text-primary">{{ userStories.story_points|default('N/A') }}</h3>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-center p-3 border rounded bg-light">
+                            <h6 class="text-muted">Nombre de Stories</h6>
+                            <h3 class="text-info">{{ userStories.stories|length|default(0) }}</h3>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-center p-3 border rounded bg-light">
+                            <h6 class="text-muted">Dépendances</h6>
+                            <h3 class="text-warning">{{ userStories.dependencies|length|default(0) }}</h3>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
 {% endif %}
 
-{# Actions #}
+{# Action Buttons #}
 <div class="row">
     <div class="col-12">
-        <a href="{{ path('app_dashboard') }}" class="btn btn-outline-secondary">
-            ← Retour au Dashboard
-        </a>
+        <div class="d-flex justify-content-between">
+            <a href="{{ path('app_analyses_list') }}" class="btn btn-outline-secondary">
+                ← Retour à la liste
+            </a>
+            <div>
+                <button class="btn btn-outline-primary" onclick="window.print()">
+                    🖨️ Imprimer
+                </button>
+                <button class="btn btn-primary" onclick="exportJSON()">
+                    💾 Exporter JSON
+                </button>
+            </div>
+        </div>
     </div>
 </div>
 
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script>
+        function exportJSON() {
+            const data = {
+                analysis: {{ analysis|json_encode|raw }},
+                cadrage: {{ cadrage|default({})|json_encode|raw }},
+                userStories: {{ userStories|default({})|json_encode|raw }}
+            };
+
+            const dataStr = JSON.stringify(data, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'analysis_{{ analysis.id }}.json';
+            link.click();
+        }
+    </script>
 {% endblock %}

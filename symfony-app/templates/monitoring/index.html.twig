@@ -1,0 +1,259 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Monitoring - {{ project.name }} - MAESTRO{% endblock %}
+
+{% block body %}
+{# Header #}
+<div class="row mb-4">
+    <div class="col">
+        <h1 class="display-5 fw-bold text-primary">
+            <span style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                📊 Monitoring Temps Réel
+            </span>
+        </h1>
+        <p class="text-muted">{{ project.name }} - Surveillance des workflows n8n</p>
+    </div>
+    <div class="col-auto">
+        <button class="btn btn-outline-primary" onclick="toggleAutoRefresh()">
+            <span id="autoRefreshIcon">⏸️</span>
+            <span id="autoRefreshText">Auto-refresh: OFF</span>
+        </button>
+    </div>
+</div>
+
+{# Stats Cards #}
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center">
+                <div class="mb-2">
+                    <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+                <h6 class="text-muted">En Cours</h6>
+                <h2 class="text-primary" id="stat-running">-</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center">
+                <div class="mb-2">
+                    <div class="spinner-grow text-warning" role="status" style="width: 3rem; height: 3rem;">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+                <h6 class="text-muted">En Attente</h6>
+                <h2 class="text-warning" id="stat-waiting">-</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center">
+                <h6 class="text-muted">Terminées (24h)</h6>
+                <h2 class="text-success" id="stat-completed">-</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center">
+                <h6 class="text-muted">Confiance Moyenne</h6>
+                <h2 class="text-info" id="stat-avg-confidence">-</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Executions List #}
+<div class="row">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 py-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 text-dark">🔄 Exécutions Récentes</h5>
+                    <small class="text-muted">Dernière mise à jour: <span id="last-update">-</span></small>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="executions-container">
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Chargement...</span>
+                        </div>
+                        <p class="text-muted mt-3">Chargement des exécutions...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script>
+        let autoRefresh = false;
+        let refreshInterval = null;
+
+        function toggleAutoRefresh() {
+            autoRefresh = !autoRefresh;
+            const icon = document.getElementById('autoRefreshIcon');
+            const text = document.getElementById('autoRefreshText');
+
+            if (autoRefresh) {
+                icon.textContent = '▶️';
+                text.textContent = 'Auto-refresh: ON';
+                refreshInterval = setInterval(loadData, 5000); // Refresh toutes les 5 secondes
+                loadData(); // Charger immédiatement
+            } else {
+                icon.textContent = '⏸️';
+                text.textContent = 'Auto-refresh: OFF';
+                if (refreshInterval) {
+                    clearInterval(refreshInterval);
+                    refreshInterval = null;
+                }
+            }
+        }
+
+        async function loadData() {
+            try {
+                // Charger les exécutions
+                const execResponse = await fetch('{{ path('app_api_monitoring_executions') }}');
+                const execData = await execResponse.json();
+
+                // Charger les stats
+                const statsResponse = await fetch('{{ path('app_api_monitoring_stats') }}');
+                const statsData = await statsResponse.json();
+
+                // Mettre à jour les stats
+                document.getElementById('stat-running').textContent = execData.stats.running || 0;
+                document.getElementById('stat-waiting').textContent = execData.stats.waiting || 0;
+                document.getElementById('stat-completed').textContent = statsData.total_today || 0;
+                const avgConfidence = statsData.avg_confidence_today ? (statsData.avg_confidence_today * 100).toFixed(0) + '%' : '0%';
+                document.getElementById('stat-avg-confidence').textContent = avgConfidence;
+
+                // Mettre à jour le timestamp
+                const now = new Date();
+                document.getElementById('last-update').textContent = now.toLocaleTimeString('fr-FR');
+
+                // Afficher les exécutions
+                renderExecutions(execData.executions);
+
+            } catch (error) {
+                console.error('Erreur lors du chargement des données:', error);
+                document.getElementById('executions-container').innerHTML = `
+                    <div class="alert alert-danger">
+                        <strong>Erreur:</strong> Impossible de charger les données. ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        function renderExecutions(executions) {
+            const container = document.getElementById('executions-container');
+
+            if (executions.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-5">
+                        <p class="text-muted">Aucune exécution récente</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '<div class="table-responsive"><table class="table table-hover align-middle">';
+            html += `
+                <thead>
+                    <tr>
+                        <th>Statut</th>
+                        <th>Requête</th>
+                        <th>Complexité</th>
+                        <th>Priorité</th>
+                        <th>Temps</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+            `;
+
+            executions.forEach(exec => {
+                const statusBadge = getStatusBadge(exec.status);
+                const complexityBadge = getComplexityBadge(exec.complexity);
+                const priorityBadge = getPriorityBadge(exec.priority);
+                const timeAgo = getTimeAgo(exec.minutes_ago);
+
+                html += `
+                    <tr class="${exec.status === 'running' ? 'table-active' : ''}">
+                        <td>${statusBadge}</td>
+                        <td>
+                            <div class="text-truncate" style="max-width: 400px;">${exec.request_text}</div>
+                        </td>
+                        <td>${complexityBadge}</td>
+                        <td>${priorityBadge}</td>
+                        <td><small class="text-muted">${timeAgo}</small></td>
+                        <td>
+                            <a href="{{ path('app_analysis_detail', {id: 'EXEC_ID'}) }}".replace('EXEC_ID', exec.id)
+                               class="btn btn-sm btn-outline-primary">
+                                Voir
+                            </a>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += '</tbody></table></div>';
+            container.innerHTML = html;
+        }
+
+        function getStatusBadge(status) {
+            const badges = {
+                'running': '<span class="badge bg-primary"><span class="spinner-border spinner-border-sm me-1"></span>En cours</span>',
+                'waiting': '<span class="badge bg-warning">⏳ En attente</span>',
+                'completed': '<span class="badge bg-success">✓ Terminée</span>',
+                'error': '<span class="badge bg-danger">✗ Erreur</span>'
+            };
+            return badges[status] || '<span class="badge bg-secondary">Unknown</span>';
+        }
+
+        function getComplexityBadge(complexity) {
+            if (!complexity) return '<span class="badge bg-secondary">N/A</span>';
+            const colors = {
+                'XS': 'success',
+                'S': 'info',
+                'M': 'warning',
+                'L': 'orange',
+                'XL': 'danger'
+            };
+            return `<span class="badge bg-${colors[complexity] || 'secondary'}">${complexity}</span>`;
+        }
+
+        function getPriorityBadge(priority) {
+            if (!priority) return '<span class="badge bg-secondary">N/A</span>';
+            const colors = {
+                'CRITICAL': 'danger',
+                'HIGH': 'warning',
+                'MEDIUM': 'info',
+                'LOW': 'secondary'
+            };
+            return `<span class="badge bg-${colors[priority] || 'secondary'}">${priority}</span>`;
+        }
+
+        function getTimeAgo(minutes) {
+            if (minutes < 1) return 'À l\'instant';
+            if (minutes < 60) return `Il y a ${Math.round(minutes)} min`;
+            const hours = Math.floor(minutes / 60);
+            if (hours < 24) return `Il y a ${hours}h`;
+            const days = Math.floor(hours / 24);
+            return `Il y a ${days}j`;
+        }
+
+        // Charger les données au chargement de la page
+        document.addEventListener('DOMContentLoaded', () => {
+            loadData();
+        });
+    </script>
+{% endblock %}

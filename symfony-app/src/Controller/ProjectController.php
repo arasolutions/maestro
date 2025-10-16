@@ -35,7 +35,7 @@ class ProjectController extends AbstractController
                 COUNT(DISTINCT a.id) as analyses_count,
                 MAX(a.created_at) as last_analysis_date
             FROM maestro.projects p
-            LEFT JOIN maestro.analyses a ON p.slug = (a.full_response->>\'project_slug\')
+            LEFT JOIN maestro.analyses a ON p.id = a.project_id
             GROUP BY p.id
             ORDER BY p.created_at DESC'
         );
@@ -110,7 +110,7 @@ class ProjectController extends AbstractController
                 p.*,
                 COUNT(DISTINCT a.id) as analyses_count
             FROM maestro.projects p
-            LEFT JOIN maestro.analyses a ON p.slug = (a.full_response->>\'project_slug\')
+            LEFT JOIN maestro.analyses a ON p.id = a.project_id
             GROUP BY p.id
             ORDER BY p.name ASC'
         );
@@ -246,28 +246,40 @@ class ProjectController extends AbstractController
      */
     private function getProjectStats(string $projectSlug): array
     {
+        // Récupérer l'ID du projet
+        $project = $this->connection->fetchAssociative(
+            'SELECT id FROM maestro.projects WHERE slug = :slug',
+            ['slug' => $projectSlug]
+        );
+
+        if (!$project) {
+            return $this->getEmptyStats();
+        }
+
+        $projectId = $project['id'];
+
         // Total analyses pour ce projet
         $totalAnalyses = (int) $this->connection->fetchOne(
             "SELECT COUNT(*)
             FROM maestro.analyses
-            WHERE full_response->>'project_slug' = :slug",
-            ['slug' => $projectSlug]
+            WHERE project_id = :projectId",
+            ['projectId' => $projectId]
         );
 
         // Confiance moyenne
         $avgConfidence = (float) $this->connection->fetchOne(
             "SELECT AVG(confidence)
             FROM maestro.analyses
-            WHERE full_response->>'project_slug' = :slug
+            WHERE project_id = :projectId
             AND confidence IS NOT NULL",
-            ['slug' => $projectSlug]
+            ['projectId' => $projectId]
         );
 
         // Distribution complexité
         $complexityDistribution = $this->connection->fetchAllAssociative(
             "SELECT complexity, COUNT(*) as count
             FROM maestro.analyses
-            WHERE full_response->>'project_slug' = :slug
+            WHERE project_id = :projectId
             AND complexity IS NOT NULL
             GROUP BY complexity
             ORDER BY
@@ -279,46 +291,46 @@ class ProjectController extends AbstractController
                     WHEN 'XL' THEN 5
                     ELSE 6
                 END",
-            ['slug' => $projectSlug]
+            ['projectId' => $projectId]
         );
 
         // Distribution priorité
         $priorityDistribution = $this->connection->fetchAllAssociative(
             "SELECT priority, COUNT(*) as count
             FROM maestro.analyses
-            WHERE full_response->>'project_slug' = :slug
+            WHERE project_id = :projectId
             AND priority IS NOT NULL
             GROUP BY priority",
-            ['slug' => $projectSlug]
+            ['projectId' => $projectId]
         );
 
         // Analyses récentes
         $recentAnalyses = $this->connection->fetchAllAssociative(
             "SELECT id, request_text, complexity, priority, confidence, created_at
             FROM maestro.analyses
-            WHERE full_response->>'project_slug' = :slug
+            WHERE project_id = :projectId
             ORDER BY created_at DESC
             LIMIT 10",
-            ['slug' => $projectSlug]
+            ['projectId' => $projectId]
         );
 
         // Total heures estimées
         $totalEstimatedHours = (int) $this->connection->fetchOne(
             "SELECT SUM(estimated_hours)
             FROM maestro.analyses
-            WHERE full_response->>'project_slug' = :slug
+            WHERE project_id = :projectId
             AND estimated_hours IS NOT NULL",
-            ['slug' => $projectSlug]
+            ['projectId' => $projectId]
         );
 
         // Distribution par type
         $typeDistribution = $this->connection->fetchAllAssociative(
             "SELECT analysis_type, COUNT(*) as count
             FROM maestro.analyses
-            WHERE full_response->>'project_slug' = :slug
+            WHERE project_id = :projectId
             AND analysis_type IS NOT NULL
             GROUP BY analysis_type",
-            ['slug' => $projectSlug]
+            ['projectId' => $projectId]
         );
 
         // Analyses par mois
@@ -327,11 +339,11 @@ class ProjectController extends AbstractController
                 TO_CHAR(created_at, 'YYYY-MM') as month,
                 COUNT(*) as count
             FROM maestro.analyses
-            WHERE full_response->>'project_slug' = :slug
+            WHERE project_id = :projectId
             AND created_at >= NOW() - INTERVAL '6 months'
             GROUP BY TO_CHAR(created_at, 'YYYY-MM')
             ORDER BY month DESC",
-            ['slug' => $projectSlug]
+            ['projectId' => $projectId]
         );
 
         return [
@@ -343,6 +355,24 @@ class ProjectController extends AbstractController
             'recent_analyses' => $recentAnalyses,
             'total_estimated_hours' => $totalEstimatedHours,
             'analyses_by_month' => $analysesByMonth,
+            'generated_at' => (new \DateTime())->format('c')
+        ];
+    }
+
+    /**
+     * Retourne des stats vides
+     */
+    private function getEmptyStats(): array
+    {
+        return [
+            'total_analyses' => 0,
+            'average_confidence' => 0,
+            'complexity_distribution' => [],
+            'priority_distribution' => [],
+            'type_distribution' => [],
+            'recent_analyses' => [],
+            'total_estimated_hours' => 0,
+            'analyses_by_month' => [],
             'generated_at' => (new \DateTime())->format('c')
         ];
     }

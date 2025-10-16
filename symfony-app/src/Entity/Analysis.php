@@ -47,6 +47,13 @@ class Analysis
     #[ORM\Column(length: 255, name: 'webhook_execution_id', nullable: true)]
     private ?string $webhookExecutionId = null;
 
+    #[ORM\Column(type: 'uuid', name: 'project_id', nullable: true)]
+    private ?Uuid $projectId = null;
+
+    #[ORM\ManyToOne(targetEntity: Project::class)]
+    #[ORM\JoinColumn(name: 'project_id', referencedColumnName: 'id', onDelete: 'CASCADE')]
+    private ?Project $project = null;
+
     #[ORM\Column(type: Types::DATETIME_MUTABLE, name: 'created_at')]
     private ?\DateTimeInterface $createdAt = null;
 
@@ -190,6 +197,31 @@ class Analysis
     public function setCreatedAt(\DateTimeInterface $createdAt): static
     {
         $this->createdAt = $createdAt;
+        return $this;
+    }
+
+    public function getProjectId(): ?Uuid
+    {
+        return $this->projectId;
+    }
+
+    public function setProjectId(?Uuid $projectId): static
+    {
+        $this->projectId = $projectId;
+        return $this;
+    }
+
+    public function getProject(): ?Project
+    {
+        return $this->project;
+    }
+
+    public function setProject(?Project $project): static
+    {
+        $this->project = $project;
+        if ($project !== null) {
+            $this->projectId = $project->getId();
+        }
         return $this;
     }
 }

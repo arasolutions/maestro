@@ -36,9 +36,19 @@ class AnalysisController extends AbstractController
         $priority = $request->query->get('priority');
         $search = $request->query->get('search');
 
+        // Get project
+        $project = $this->connection->fetchAssociative(
+            'SELECT * FROM maestro.projects WHERE slug = :slug',
+            ['slug' => $currentProjectSlug]
+        );
+
+        if (!$project) {
+            throw $this->createNotFoundException('Projet introuvable');
+        }
+
         // Build query
-        $sql = "SELECT * FROM maestro.analyses WHERE full_response->>'project_slug' = :slug";
-        $params = ['slug' => $currentProjectSlug];
+        $sql = "SELECT * FROM maestro.analyses WHERE project_id = :projectId";
+        $params = ['projectId' => $project['id']];
 
         if ($complexity) {
             $sql .= " AND complexity = :complexity";
@@ -56,7 +66,7 @@ class AnalysisController extends AbstractController
         }
 
         // Count total
-        $countSql = "SELECT COUNT(*) FROM maestro.analyses WHERE full_response->>'project_slug' = :slug";
+        $countSql = "SELECT COUNT(*) FROM maestro.analyses WHERE project_id = :projectId";
         if ($complexity) $countSql .= " AND complexity = :complexity";
         if ($priority) $countSql .= " AND priority = :priority";
         if ($search) $countSql .= " AND request_text ILIKE :search";
@@ -69,12 +79,6 @@ class AnalysisController extends AbstractController
         $params['offset'] = $offset;
 
         $analyses = $this->connection->fetchAllAssociative($sql, $params);
-
-        // Get project info
-        $project = $this->connection->fetchAssociative(
-            'SELECT * FROM maestro.projects WHERE slug = :slug',
-            ['slug' => $currentProjectSlug]
-        );
 
         return $this->render('analysis/list.html.twig', [
             'analyses' => $analyses,

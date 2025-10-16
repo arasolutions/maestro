@@ -12,7 +12,10 @@
       "Bash(\"/c/wamp64-v3/bin/php/php8.2.26/php.exe\" bin/console asset-map:compile)",
       "Bash(\"/c/wamp64-v3/bin/php/php8.2.26/php.exe\" -S localhost:8000 -t public public/router.php)",
       "Bash(\"/c/wamp64-v3/bin/php/php8.2.26/php.exe\" bin/console cache:clear)",
-      "Bash(\"/c/wamp64-v3/bin/php/php8.2.26/php.exe\" bin/console debug:router app_analyses_list)"
+      "Bash(\"/c/wamp64-v3/bin/php/php8.2.26/php.exe\" bin/console debug:router app_analyses_list)",
+      "Bash(\"/c/wamp64-v3/bin/php/php8.2.26/php.exe\" bin/console doctrine:query:sql \"SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_schema = ''maestro'' AND table_name = ''analyses'' ORDER BY ordinal_position\")",
+      "Bash(\"/c/wamp64-v3/bin/php/php8.2.26/php.exe\" bin/console doctrine:query:sql \"ALTER TABLE maestro.analyses ADD COLUMN project_id UUID REFERENCES maestro.projects(id) ON DELETE CASCADE\")",
+      "Bash(\"/c/wamp64-v3/bin/php/php8.2.26/php.exe\" bin/console doctrine:query:sql \"CREATE INDEX idx_analyses_project_id ON maestro.analyses(project_id)\")"
     ],
     "deny": [],
     "ask": [],
