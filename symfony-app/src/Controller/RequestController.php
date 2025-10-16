@@ -107,6 +107,41 @@ class RequestController extends AbstractController
     }
 
     /**
+     * Supprimer plusieurs requêtes en masse
+     */
+    #[Route('/requests/bulk-delete', name: 'app_requests_bulk_delete', methods: ['POST'])]
+    public function bulkDelete(Request $request): Response
+    {
+        // Vérifier le token CSRF
+        $token = $request->request->get('_token');
+        if (!$this->isCsrfTokenValid('bulk_delete_requests', $token)) {
+            $this->addFlash('error', 'Token CSRF invalide');
+            return $this->redirectToRoute('app_requests_list');
+        }
+
+        $requestIds = $request->request->all('request_ids');
+
+        if (empty($requestIds)) {
+            $this->addFlash('warning', 'Aucune requête sélectionnée');
+            return $this->redirectToRoute('app_requests_list');
+        }
+
+        try {
+            $count = 0;
+            foreach ($requestIds as $id) {
+                $this->connection->delete('maestro.requests', ['id' => $id]);
+                $count++;
+            }
+
+            $this->addFlash('success', sprintf('%d requête(s) supprimée(s) avec succès', $count));
+        } catch (\Exception $e) {
+            $this->addFlash('error', 'Erreur lors de la suppression en masse: ' . $e->getMessage());
+        }
+
+        return $this->redirectToRoute('app_requests_list');
+    }
+
+    /**
      * Formulaire de soumission d'une nouvelle requête
      */
     #[Route('/request/new', name: 'app_request_new')]

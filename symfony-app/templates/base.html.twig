@@ -66,6 +66,25 @@
     </nav>
 
     <main class="container-fluid py-4">
+        {# Flash messages #}
+        {% for label, messages in app.flashes %}
+            {% for message in messages %}
+                <div class="alert alert-{{ label == 'error' ? 'danger' : (label == 'warning' ? 'warning' : (label == 'info' ? 'info' : 'success')) }} alert-dismissible fade show" role="alert">
+                    {% if label == 'success' %}
+                        <i class="bi bi-check-circle-fill me-2"></i>
+                    {% elseif label == 'error' %}
+                        <i class="bi bi-x-circle-fill me-2"></i>
+                    {% elseif label == 'warning' %}
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    {% else %}
+                        <i class="bi bi-info-circle-fill me-2"></i>
+                    {% endif %}
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endfor %}
+
         {% block body %}{% endblock %}
     </main>
 

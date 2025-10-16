@@ -99,30 +99,64 @@
     {# Liste des requêtes #}
     <div class="card">
         <div class="card-body">
+            {# Barre d'actions en masse #}
+            <div class="d-flex justify-content-between align-items-center mb-3" id="bulkActionsBar" style="display: none !important;">
+                <div>
+                    <span id="selectedCount">0</span> requête(s) sélectionnée(s)
+                </div>
+                <div>
+                    <button type="button" class="btn btn-danger" id="bulkDeleteBtn" disabled
+                            data-bs-toggle="modal" data-bs-target="#bulkDeleteModal">
+                        <i class="bi bi-trash"></i> Supprimer la sélection
+                    </button>
+                </div>
+            </div>
+
             <div class="table-responsive">
-                <table class="table table-hover">
+                <table class="table table-hover" id="requestsTable">
                     <thead>
                         <tr>
-                            <th style="width: 50px">#</th>
-                            <th>Requête</th>
-                            <th style="width: 150px">Projet</th>
-                            <th style="width: 120px">Statut</th>
-                            <th style="width: 100px">Analyse</th>
-                            <th style="width: 150px">Date</th>
+                            <th style="width: 40px">
+                                <input type="checkbox" id="selectAll" class="form-check-input">
+                            </th>
+                            <th style="width: 40px">#</th>
+                            <th class="sortable" data-sort="request_text">
+                                Requête <i class="bi bi-chevron-expand text-muted"></i>
+                            </th>
+                            <th class="sortable" data-sort="project_name" style="width: 150px">
+                                Projet <i class="bi bi-chevron-expand text-muted"></i>
+                            </th>
+                            <th class="sortable" data-sort="status" style="width: 120px">
+                                Statut <i class="bi bi-chevron-expand text-muted"></i>
+                            </th>
+                            <th class="sortable" data-sort="complexity" style="width: 100px">
+                                Analyse <i class="bi bi-chevron-expand text-muted"></i>
+                            </th>
+                            <th class="sortable" data-sort="created_at" style="width: 150px">
+                                Date <i class="bi bi-chevron-expand text-muted"></i>
+                            </th>
                             <th style="width: 180px">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% if requests is empty %}
                         <tr>
-                            <td colspan="7" class="text-center text-muted py-4">
+                            <td colspan="8" class="text-center text-muted py-4">
                                 <i class="bi bi-inbox fs-1"></i>
                                 <p class="mb-0">Aucune requête trouvée</p>
                             </td>
                         </tr>
                         {% else %}
                             {% for request in requests %}
-                            <tr>
+                            <tr data-request-id="{{ request.id }}"
+                                data-request-text="{{ request.request_text|e('html_attr') }}"
+                                data-project-name="{{ request.project_name|default('N/A')|e('html_attr') }}"
+                                data-status="{{ request.status }}"
+                                data-complexity="{{ request.complexity|default('')|e('html_attr') }}"
+                                data-created-at="{{ request.created_at }}">
+                                <td>
+                                    <input type="checkbox" class="form-check-input request-checkbox" value="{{ request.id }}">
+                                </td>
                                 <td>
                                     <small class="text-muted">{{ loop.index }}</small>
                                 </td>
@@ -181,7 +215,11 @@
                                         </a>
                                     {% endif %}
                                     <button type="button" class="btn btn-sm btn-outline-danger ms-1"
-                                            onclick="deleteRequest('{{ request.id }}')">
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#deleteModal"
+                                            data-request-id="{{ request.id }}"
+                                            data-request-text="{{ request.request_text|slice(0, 50) }}..."
+                                            data-csrf-token="{{ csrf_token('delete_request_' ~ request.id) }}">
                                         Supprimer
                                     </button>
                                 </td>
@@ -195,30 +233,229 @@
     </div>
 </div>
 
+{# Modal de confirmation de suppression en masse #}
+<div class="modal fade" id="bulkDeleteModal" tabindex="-1" aria-labelledby="bulkDeleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="bulkDeleteModalLabel">
+                    <i class="bi bi-exclamation-triangle"></i> Confirmer la suppression en masse
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Êtes-vous sûr de vouloir supprimer <strong id="bulkDeleteCount"></strong> requête(s) ?</p>
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle-fill"></i> Cette action supprimera également toutes les analyses associées.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <form method="post" action="{{ path('app_requests_bulk_delete') }}" id="bulkDeleteForm" data-turbo="false">
+                    <input type="hidden" name="_token" value="{{ csrf_token('bulk_delete_requests') }}">
+                    <div id="bulkDeleteIds"></div>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash"></i> Supprimer définitivement
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 {# Modal de confirmation de suppression #}
-<form method="post" id="deleteForm" style="display: none;">
-    <input type="hidden" name="_token" id="deleteToken">
-</form>
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="deleteModalLabel">
+                    <i class="bi bi-exclamation-triangle"></i> Confirmer la suppression
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Êtes-vous sûr de vouloir supprimer cette requête ?</p>
+                <div class="alert alert-warning">
+                    <strong>Requête :</strong> <span id="requestTextPreview"></span>
+                </div>
+                <p class="text-danger">
+                    <i class="bi bi-info-circle"></i> Cette action supprimera également l'analyse associée si elle existe.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <form method="post" id="deleteForm" style="display: inline;" data-turbo="false">
+                    <input type="hidden" name="_token" id="deleteToken">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash"></i> Supprimer définitivement
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.sortable {
+    cursor: pointer;
+    user-select: none;
+}
+.sortable:hover {
+    background-color: #f8f9fa;
+}
+.sortable.sorted-asc i::before {
+    content: "\F282"; /* bi-chevron-up */
+}
+.sortable.sorted-desc i::before {
+    content: "\F286"; /* bi-chevron-down */
+}
+</style>
 
 <script>
-function deleteRequest(requestId) {
-    if (confirm('Êtes-vous sûr de vouloir supprimer cette requête ?\n\nCette action supprimera également l\'analyse associée si elle existe.')) {
-        const form = document.getElementById('deleteForm');
-        form.action = '/request/' + requestId + '/delete';
+// ===== SÉLECTION EN MASSE =====
+const selectAllCheckbox = document.getElementById('selectAll');
+const requestCheckboxes = document.querySelectorAll('.request-checkbox');
+const bulkActionsBar = document.getElementById('bulkActionsBar');
+const selectedCountSpan = document.getElementById('selectedCount');
+const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
 
-        // Générer le token CSRF
-        fetch('/request/' + requestId + '/delete', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: '_token=' + encodeURIComponent('{{ csrf_token("delete_request_' + requestId + '") }}')
-        }).then(() => {
-            window.location.reload();
-        }).catch(error => {
-            alert('Erreur lors de la suppression');
-        });
+// Tout sélectionner / désélectionner
+selectAllCheckbox.addEventListener('change', function() {
+    requestCheckboxes.forEach(checkbox => {
+        checkbox.checked = this.checked;
+    });
+    updateBulkActions();
+});
+
+// Gérer la sélection individuelle
+requestCheckboxes.forEach(checkbox => {
+    checkbox.addEventListener('change', function() {
+        updateBulkActions();
+        // Décocher "tout sélectionner" si une case est décochée
+        if (!this.checked) {
+            selectAllCheckbox.checked = false;
+        }
+        // Cocher "tout sélectionner" si toutes les cases sont cochées
+        if (document.querySelectorAll('.request-checkbox:checked').length === requestCheckboxes.length) {
+            selectAllCheckbox.checked = true;
+        }
+    });
+});
+
+// Mettre à jour l'affichage des actions en masse
+function updateBulkActions() {
+    const selectedCheckboxes = document.querySelectorAll('.request-checkbox:checked');
+    const count = selectedCheckboxes.length;
+
+    selectedCountSpan.textContent = count;
+
+    if (count > 0) {
+        bulkActionsBar.style.display = 'flex !important';
+        bulkActionsBar.classList.remove('d-none');
+        bulkActionsBar.style.removeProperty('display');
+        bulkDeleteBtn.disabled = false;
+    } else {
+        bulkActionsBar.style.display = 'none';
+        bulkDeleteBtn.disabled = true;
     }
+}
+
+// Gérer l'ouverture du modal de suppression en masse
+const bulkDeleteModal = document.getElementById('bulkDeleteModal');
+bulkDeleteModal.addEventListener('show.bs.modal', function (event) {
+    const selectedCheckboxes = document.querySelectorAll('.request-checkbox:checked');
+    const count = selectedCheckboxes.length;
+
+    if (count === 0) return;
+
+    // Mettre à jour le modal
+    document.getElementById('bulkDeleteCount').textContent = count;
+
+    // Créer les inputs hidden pour les IDs
+    const bulkDeleteIdsDiv = document.getElementById('bulkDeleteIds');
+    bulkDeleteIdsDiv.innerHTML = '';
+
+    selectedCheckboxes.forEach(checkbox => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'request_ids[]';
+        input.value = checkbox.value;
+        bulkDeleteIdsDiv.appendChild(input);
+    });
+});
+
+// ===== SUPPRESSION UNITAIRE =====
+const deleteModal = document.getElementById('deleteModal');
+deleteModal.addEventListener('show.bs.modal', function (event) {
+    const button = event.relatedTarget;
+    const requestId = button.getAttribute('data-request-id');
+    const requestText = button.getAttribute('data-request-text');
+    const csrfToken = button.getAttribute('data-csrf-token');
+
+    document.getElementById('requestTextPreview').textContent = requestText;
+
+    const form = document.getElementById('deleteForm');
+    form.action = '{{ path("app_request_delete", {id: "REQUEST_ID_PLACEHOLDER"}) }}'.replace('REQUEST_ID_PLACEHOLDER', requestId);
+
+    document.getElementById('deleteToken').value = csrfToken;
+});
+
+// ===== TRI DES COLONNES =====
+const sortableHeaders = document.querySelectorAll('.sortable');
+let currentSort = { column: null, direction: 'asc' };
+
+sortableHeaders.forEach(header => {
+    header.addEventListener('click', function() {
+        const column = this.getAttribute('data-sort');
+
+        // Déterminer la direction du tri
+        if (currentSort.column === column) {
+            currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+        } else {
+            currentSort.direction = 'asc';
+        }
+        currentSort.column = column;
+
+        // Mettre à jour les icônes
+        sortableHeaders.forEach(h => {
+            h.classList.remove('sorted-asc', 'sorted-desc');
+        });
+        this.classList.add('sorted-' + currentSort.direction);
+
+        // Effectuer le tri
+        sortTable(column, currentSort.direction);
+    });
+});
+
+function sortTable(column, direction) {
+    const tbody = document.querySelector('#requestsTable tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr')).filter(row => !row.querySelector('td[colspan]'));
+
+    rows.sort((a, b) => {
+        let aVal = a.getAttribute('data-' + column.replace('_', '-')) || '';
+        let bVal = b.getAttribute('data-' + column.replace('_', '-')) || '';
+
+        // Tri numérique pour les dates
+        if (column === 'created_at') {
+            aVal = new Date(aVal).getTime();
+            bVal = new Date(bVal).getTime();
+        }
+
+        // Tri alphabétique
+        if (typeof aVal === 'string') {
+            aVal = aVal.toLowerCase();
+            bVal = bVal.toLowerCase();
+        }
+
+        if (direction === 'asc') {
+            return aVal > bVal ? 1 : -1;
+        } else {
+            return aVal < bVal ? 1 : -1;
+        }
+    });
+
+    // Réinsérer les lignes triées
+    rows.forEach(row => tbody.appendChild(row));
 }
 </script>
 {% endblock %}
