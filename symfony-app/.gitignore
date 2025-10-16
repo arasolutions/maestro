@@ -8,6 +8,7 @@
 /var/
 /vendor/
 ###< symfony/framework-bundle ###
+.env*
 
 ###> phpunit/phpunit ###
 /phpunit.xml
