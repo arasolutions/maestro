@@ -35,7 +35,14 @@
       "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console doctrine:query:sql \"SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = ''maestro'' AND table_name IN (''generated_code'', ''test_scenarios'') ORDER BY table_name, ordinal_position\")",
       "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console doctrine:query:sql \"SELECT COUNT(*) as count FROM maestro.generated_code UNION ALL SELECT COUNT(*) FROM maestro.test_scenarios\")",
       "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console doctrine:query:sql \"SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = ''maestro'' AND table_name = ''analyses'' ORDER BY ordinal_position\")",
-      "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console doctrine:query:sql:*)"
+      "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console doctrine:query:sql:*)",
+      "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console doctrine:query:sql \"SELECT us.id as us_record_id, a.id as analysis_id, a.request_text FROM maestro.user_stories us INNER JOIN maestro.analyses a ON us.analysis_id = a.id ORDER BY us.created_at DESC LIMIT 1\")",
+      "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console doctrine:query:sql \"SELECT jsonb_pretty(stories) FROM maestro.user_stories WHERE id = ''2aea6412-9d33-44f8-9c6b-57d8a61643ce'' LIMIT 1\")",
+      "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console doctrine:query:sql \"SELECT id, user_story_id, language, framework, created_at FROM maestro.generated_code WHERE user_story_id = ''2aea6412-9d33-44f8-9c6b-57d8a61643ce'' LIMIT 1\")",
+      "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console cache:clear)",
+      "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console debug:router app_user_story_generate_code)",
+      "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console debug:container n8n --parameters)",
+      "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console debug:container AppServiceN8nService)"
     ],
     "deny": [],
     "ask": [],

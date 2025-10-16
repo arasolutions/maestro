@@ -124,7 +124,7 @@ class CodeController extends AbstractController
             }
 
             // Call n8n webhook for Dev Agent
-            $response = $this->n8nService->callWebhook('/webhook/dev-generate', [
+            $response = $this->n8nService->callWebhook('/dev-generate', [
                 'analysis_id' => $analysisId,
                 'user_story_id' => $allUserStories['id'], // Internal DB ID
                 'story' => $story,

@@ -1,4 +1,5 @@
 {
+  "name": "Agent DEV - Code Generator",
   "nodes": [
     {
       "parameters": {
@@ -9,7 +10,7 @@
       },
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
-      "position": [-640, 240],
+      "position": [220, 300],
       "id": "webhook-dev",
       "name": "Webhook Dev Generator",
       "webhookId": "dev-generator"
@@ -42,7 +43,7 @@
       },
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [-440, 240],
+      "position": [440, 300],
       "id": "keep-input-dev",
       "name": "Keep Input Data"
     },
@@ -56,7 +57,7 @@
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [-240, 240],
+      "position": [660, 300],
       "id": "fetch-project-context",
       "name": "Fetch Project Context",
       "credentials": {
@@ -72,34 +73,44 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-40, 240],
+      "position": [880, 300],
       "id": "prepare-dev-context",
       "name": "Prepare Dev Context"
     },
     {
       "parameters": {
+        "jsCode": "const data = $input.first().json;\n\n// Build the prompt text safely\nconst promptText = `Tu es un développeur expert Symfony 7 / PHP 8.2.\n\n=== USER STORY À IMPLÉMENTER ===\nID: ${data.story.id}\nTitre: ${data.title}\n\nUser Story:\n- En tant que: ${data.as_a}\n- Je veux: ${data.i_want}\n- Afin de: ${data.so_that}\n\nCritères d'acceptance:\n${(data.acceptance_criteria || []).map((c, i) => `${i+1}. ${c}`).join('\\n')}\n\n=== CONTEXTE TECHNIQUE ===\nFramework: ${data.backend}\nBase de données: ${data.database}\nFrontend: ${data.frontend}\nNotes techniques: ${data.technical_notes || 'Aucune'}\n\n=== MISSION ===\nGénère le code Symfony nécessaire pour implémenter cette User Story.\nProduis un Controller avec les actions nécessaires, respectant les best practices Symfony.\n\nStructure attendue:\n1. Controller complet avec routes, actions, validation\n2. Code commenté et PSR-12 compliant\n3. Gestion d'erreurs et messages flash\n4. Redirection après succès\n\nRéponds UNIQUEMENT en JSON avec cette structure:\n{\n  \"controller\": {\n    \"filename\": \"NomController.php\",\n    \"path\": \"src/Controller/NomController.php\",\n    \"content\": \"<?php code complet ici...\"\n  },\n  \"entity\": {\n    \"filename\": \"NomEntity.php\",\n    \"path\": \"src/Entity/NomEntity.php\",\n    \"content\": \"<?php code complet ici...\"\n  },\n  \"template\": {\n    \"filename\": \"template.html.twig\",\n    \"path\": \"templates/nom/template.html.twig\",\n    \"content\": \"{% twig code ici %}\"\n  },\n  \"documentation\": \"Description de ce qui a été implémenté et comment l'utiliser\"\n}\n\nSi un fichier n'est pas nécessaire, mets null pour sa valeur.`;\n\n// Build proper Gemini API request with API key in URL\nconst apiKey = 'AIzaSyCh8UXpXbf_E-NtkJC5QbMmbUpRw2zKN1M';\nconst geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${apiKey}`;\n\nconst geminiPayload = {\n  contents: [{\n    parts: [{\n      text: promptText\n    }]\n  }],\n  generationConfig: {\n    temperature: 0.8,\n    topK: 40,\n    topP: 0.95,\n    maxOutputTokens: 8192,\n    responseMimeType: \"application/json\"\n  }\n};\n\nreturn [{\n  json: {\n    ...data,\n    gemini_url: geminiUrl,\n    gemini_payload: geminiPayload\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1100, 300],
+      "id": "prepare-gemini-prompt",
+      "name": "Prepare Gemini Prompt"
+    },
+    {
+      "parameters": {
         "method": "POST",
-        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=AIzaSyCh8UXpXbf_E-NtkJC5QbMmbUpRw2zKN1M",
+        "url": "={{ $json.gemini_url }}",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ {\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": 'Tu es un développeur expert Symfony 7 / PHP 8.2.\\n\\n=== USER STORY À IMPLÉMENTER ===\\nID: ' + $json.story.id + '\\nTitre: ' + $json.title.replace(/\"/g, \"'\") + '\\n\\nUser Story:\\n- En tant que: ' + $json.as_a.replace(/\"/g, \"'\") + '\\n- Je veux: ' + $json.i_want.replace(/\"/g, \"'\") + '\\n- Afin de: ' + $json.so_that.replace(/\"/g, \"'\") + '\\n\\nCritères d\\'acceptance:\\n' + ($json.acceptance_criteria || []).map((c, i) => (i+1) + '. ' + c.replace(/\"/g, \"'\")).join('\\n') + '\\n\\n=== CONTEXTE TECHNIQUE ===\\nFramework: ' + $json.backend + '\\nBase de données: ' + $json.database + '\\nFrontend: ' + $json.frontend + '\\nNotes techniques: ' + ($json.technical_notes || 'Aucune').replace(/\"/g, \"'\") + '\\n\\n=== MISSION ===\\nGénère le code Symfony nécessaire pour implémenter cette User Story.\\nProduis un Controller avec les actions nécessaires, respectant les best practices Symfony.\\n\\nStructure attendue:\\n1. Controller complet avec routes, actions, validation\\n2. Code commenté et PSR-12 compliant\\n3. Gestion d\\'erreurs et messages flash\\n4. Redirection après succès\\n\\nRéponds UNIQUEMENT en JSON avec cette structure:\\n{\\n  \"controller\": {\\n    \"filename\": \"NomController.php\",\\n    \"path\": \"src/Controller/NomController.php\",\\n    \"content\": \"<?php code complet ici...\"\\n  },\\n  \"entity\": {\\n    \"filename\": \"NomEntity.php\",\\n    \"path\": \"src/Entity/NomEntity.php\",\\n    \"content\": \"<?php code complet ici...\"\\n  },\\n  \"template\": {\\n    \"filename\": \"template.html.twig\",\\n    \"path\": \"templates/nom/template.html.twig\",\\n    \"content\": \"{% twig code ici %}\"\\n  },\\n  \"documentation\": \"Description de ce qui a été implémenté et comment l\\'utiliser\"\\n}\\n\\nSi un fichier n\\'est pas nécessaire, mets null pour sa valeur.'\n    }]\n  }],\n  \"generationConfig\": {\n    \"temperature\": 0.8,\n    \"topK\": 40,\n    \"topP\": 0.95,\n    \"maxOutputTokens\": 8192,\n    \"responseMimeType\": \"application/json\"\n  }\n} }}",
+        "jsonBody": "={{ $json.gemini_payload }}",
         "options": {
           "timeout": 120000
         }
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [160, 240],
+      "position": [1320, 300],
       "id": "gemini-code-gen",
       "name": "Gemini Code Generation"
     },
     {
       "parameters": {
-        "jsCode": "const geminiResponse = $input.first().json;\nconst contextData = $('Prepare Dev Context').first().json;\n\nconsole.log('=== CODE GENERATION RESULT ===');\nconsole.log('User Story ID:', contextData.user_story_id);\n\nlet generatedCode = {};\ntry {\n  const textContent = geminiResponse.candidates[0].content.parts[0].text;\n  generatedCode = JSON.parse(textContent);\n  console.log('OK Code generated successfully');\n} catch(e) {\n  console.error('ERROR Parsing Gemini response:', e.message);\n  generatedCode = {\n    controller: null,\n    entity: null,\n    template: null,\n    documentation: 'Erreur lors de la génération du code'\n  };\n}\n\n// Build code_files array for database\nconst codeFiles = [];\n\nif (generatedCode.controller) {\n  codeFiles.push({\n    path: generatedCode.controller.path || 'src/Controller/GeneratedController.php',\n    content: generatedCode.controller.content,\n    type: 'controller',\n    filename: generatedCode.controller.filename || 'GeneratedController.php'\n  });\n}\n\nif (generatedCode.entity) {\n  codeFiles.push({\n    path: generatedCode.entity.path || 'src/Entity/GeneratedEntity.php',\n    content: generatedCode.entity.content,\n    type: 'entity',\n    filename: generatedCode.entity.filename || 'GeneratedEntity.php'\n  });\n}\n\nif (generatedCode.template) {\n  codeFiles.push({\n    path: generatedCode.template.path || 'templates/generated/index.html.twig',\n    content: generatedCode.template.content,\n    type: 'template',\n    filename: generatedCode.template.filename || 'index.html.twig'\n  });\n}\n\nconst params = [\n  contextData.user_story_id,\n  'PHP',\n  'Symfony 7',\n  JSON.stringify(codeFiles),\n  null, // tests (will be generated later by TEST agent)\n  generatedCode.documentation || 'Code généré automatiquement'\n];\n\nreturn [{\n  json: {\n    params,\n    user_story_id: contextData.user_story_id,\n    analysis_id: contextData.analysis_id,\n    generated_code: generatedCode,\n    file_count: codeFiles.length,\n    summary: {\n      controller: generatedCode.controller ? '✓' : '✗',\n      entity: generatedCode.entity ? '✓' : '✗',\n      template: generatedCode.template ? '✓' : '✗'\n    }\n  }\n}];"
+        "jsCode": "const geminiResponse = $input.first().json;\nconst contextData = $('Prepare Gemini Prompt').first().json;\n\nconsole.log('=== CODE GENERATION RESULT ===');\nconsole.log('User Story ID:', contextData.user_story_id);\n\nlet generatedCode = {};\ntry {\n  const textContent = geminiResponse.candidates[0].content.parts[0].text;\n  generatedCode = JSON.parse(textContent);\n  console.log('✓ Code generated successfully');\n} catch(e) {\n  console.error('ERROR Parsing Gemini response:', e.message);\n  generatedCode = {\n    controller: null,\n    entity: null,\n    template: null,\n    documentation: 'Erreur lors de la génération du code: ' + e.message\n  };\n}\n\n// Build code_files array for database\nconst codeFiles = [];\n\nif (generatedCode.controller) {\n  codeFiles.push({\n    path: generatedCode.controller.path || 'src/Controller/GeneratedController.php',\n    content: generatedCode.controller.content,\n    type: 'controller',\n    filename: generatedCode.controller.filename || 'GeneratedController.php'\n  });\n}\n\nif (generatedCode.entity) {\n  codeFiles.push({\n    path: generatedCode.entity.path || 'src/Entity/GeneratedEntity.php',\n    content: generatedCode.entity.content,\n    type: 'entity',\n    filename: generatedCode.entity.filename || 'GeneratedEntity.php'\n  });\n}\n\nif (generatedCode.template) {\n  codeFiles.push({\n    path: generatedCode.template.path || 'templates/generated/index.html.twig',\n    content: generatedCode.template.content,\n    type: 'template',\n    filename: generatedCode.template.filename || 'index.html.twig'\n  });\n}\n\nconst params = [\n  contextData.user_story_id,\n  'PHP',\n  'Symfony 7',\n  JSON.stringify(codeFiles),\n  null, // tests (will be generated later by TEST agent)\n  generatedCode.documentation || 'Code généré automatiquement'\n];\n\nreturn [{\n  json: {\n    params,\n    user_story_id: contextData.user_story_id,\n    analysis_id: contextData.analysis_id,\n    generated_code: generatedCode,\n    file_count: codeFiles.length,\n    summary: {\n      controller: generatedCode.controller ? '✓' : '✗',\n      entity: generatedCode.entity ? '✓' : '✗',\n      template: generatedCode.template ? '✓' : '✗'\n    }\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [360, 240],
+      "position": [1540, 300],
       "id": "prepare-code-data",
       "name": "Prepare Code Data"
     },
@@ -113,7 +124,7 @@
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [560, 240],
+      "position": [1760, 300],
       "id": "save-generated-code",
       "name": "Save Generated Code",
       "credentials": {
@@ -126,21 +137,12 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({\n  \"status\": \"success\",\n  \"agent\": \"DEV\",\n  \"message\": \"Code généré avec succès\",\n  \"code_id\": $json.id,\n  \"user_story_id\": $('Prepare Code Data').item.json.user_story_id,\n  \"created_at\": $json.created_at,\n  \"file_count\": $('Prepare Code Data').item.json.file_count,\n  \"summary\": $('Prepare Code Data').item.json.summary\n}, null, 2) }}",
-        "options": {
-          "responseHeaders": {
-            "entries": [
-              {
-                "name": "Content-Type",
-                "value": "application/json"
-              }
-            ]
-          }
-        }
+        "responseBody": "={{ JSON.stringify({\n  status: 'success',\n  agent: 'DEV',\n  message: 'Code généré avec succès',\n  code_id: $json.id,\n  user_story_id: $('Prepare Code Data').item.json.user_story_id,\n  created_at: $json.created_at,\n  file_count: $('Prepare Code Data').item.json.file_count,\n  summary: $('Prepare Code Data').item.json.summary\n}, null, 2) }}",
+        "options": {}
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.4,
-      "position": [760, 240],
+      "position": [1980, 300],
       "id": "respond-dev-success",
       "name": "Respond Success"
     }
@@ -156,6 +158,9 @@
       "main": [[{"node": "Prepare Dev Context", "type": "main", "index": 0}]]
     },
     "Prepare Dev Context": {
+      "main": [[{"node": "Prepare Gemini Prompt", "type": "main", "index": 0}]]
+    },
+    "Prepare Gemini Prompt": {
       "main": [[{"node": "Gemini Code Generation", "type": "main", "index": 0}]]
     },
     "Gemini Code Generation": {
@@ -169,7 +174,7 @@
     }
   },
   "pinData": {},
-  "meta": {
-    "instanceId": "ed02db89d7f2488035bfec7b1491988dab1d203f160701f703954ad6afe22be8"
+  "settings": {
+    "executionOrder": "v1"
   }
 }

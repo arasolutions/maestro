@@ -179,7 +179,7 @@
                     {% else %}
                         <span class="file-type-badge badge-other">{{ file.type|upper|default('FILE') }}</span>
                     {% endif %}
-                    {% if file.lines %}
+                    {% if file.lines is defined and file.lines %}
                         <small class="text-white-50">{{ file.lines }} lignes</small>
                     {% endif %}
                 </div>
