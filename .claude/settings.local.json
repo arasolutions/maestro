@@ -10,7 +10,10 @@
       "Bash(curl:*)",
       "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console doctrine:query:sql \"SELECT id, analysis_id, created_at FROM maestro.cadrages WHERE id = ''d355798a-bff2-4df2-bfda-0e0f56b05c99''\")",
       "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console doctrine:query:sql \"SELECT id, analysis_id, story_points, created_at FROM maestro.user_stories WHERE analysis_id = ''080076c2-da78-4d85-add4-8dc6bf108d08'' ORDER BY created_at DESC LIMIT 1\")",
-      "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console doctrine:query:sql \"SELECT id, perimetre, created_at FROM maestro.cadrages WHERE id = ''28594b90-d6df-44b7-9e81-2ff2c53e54ce''\")"
+      "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console doctrine:query:sql \"SELECT id, perimetre, created_at FROM maestro.cadrages WHERE id = ''28594b90-d6df-44b7-9e81-2ff2c53e54ce''\")",
+      "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console doctrine:query:sql \"SELECT id, analysis_id, story_points, created_at FROM maestro.user_stories ORDER BY created_at DESC LIMIT 1\")",
+      "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console doctrine:query:sql \"SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = ''maestro'' AND table_name = ''user_stories'' ORDER BY ordinal_position\")",
+      "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console doctrine:query:sql \"SELECT id, analysis_id, story_points, created_at FROM maestro.user_stories WHERE id = ''f6a82a3f-d2d7-4cfe-9516-1b2e369783a6''\")"
     ],
     "deny": [],
     "ask": [],
