@@ -16,7 +16,8 @@
       "Bash(\"/c/wamp64-v3/bin/php/php8.2.26/php.exe\" bin/console debug:router app_request_new)",
       "Bash(\"/c/wamp64-v3/bin/php/php8.2.26/php.exe\" bin/console debug:container n8n --parameters)",
       "Bash(\"/c/wamp64-v3/bin/php/php8.2.26/php.exe\" bin/console debug:container App\\Service\\N8nService)",
-      "Bash(curl -I https://n8n.maestro.ara-solutions.cloud/webhook/analyze)"
+      "Bash(curl -I https://n8n.maestro.ara-solutions.cloud/webhook/analyze)",
+      "Bash(\"/c/wamp64-v3/bin/php/php8.2.26/php.exe\" bin/console doctrine:query:sql \"ALTER TABLE maestro.requests DROP COLUMN IF EXISTS request_type, DROP COLUMN IF EXISTS priority\")"
     ],
     "deny": [],
     "ask": [],

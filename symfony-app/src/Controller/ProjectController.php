@@ -284,7 +284,7 @@ class ProjectController extends AbstractController
 
         // Récupérer les requêtes récentes (toutes statuts confondus)
         $recentRequests = $this->connection->fetchAllAssociative(
-            "SELECT id, request_text, request_type, priority, status, created_at, updated_at
+            "SELECT id, request_text, status, created_at, updated_at
             FROM maestro.requests
             WHERE project_id = :projectId
             ORDER BY created_at DESC

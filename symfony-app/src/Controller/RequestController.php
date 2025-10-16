@@ -19,6 +19,94 @@ class RequestController extends AbstractController
     }
 
     /**
+     * Liste de toutes les requêtes
+     */
+    #[Route('/requests', name: 'app_requests_list')]
+    public function list(Request $request): Response
+    {
+        // Récupérer le projet courant si sélectionné
+        $currentProjectSlug = $request->getSession()->get('current_project_slug');
+
+        // Filtres
+        $status = $request->query->get('status');
+        $projectSlug = $request->query->get('project', $currentProjectSlug);
+
+        // Construire la requête SQL
+        $sql = 'SELECT r.id, r.request_text, r.status, r.project_id,
+                       r.webhook_execution_id, r.error_message, r.created_at, r.updated_at,
+                       p.name as project_name, p.slug as project_slug,
+                       a.id as analysis_id, a.complexity, a.confidence,
+                       a.analysis_type, a.priority
+                FROM maestro.requests r
+                LEFT JOIN maestro.projects p ON r.project_id = p.id
+                LEFT JOIN maestro.analyses a ON r.id = a.request_id
+                WHERE 1=1';
+
+        $params = [];
+
+        if ($projectSlug) {
+            $sql .= ' AND p.slug = :project_slug';
+            $params['project_slug'] = $projectSlug;
+        }
+
+        if ($status) {
+            $sql .= ' AND r.status = :status';
+            $params['status'] = $status;
+        }
+
+        $sql .= ' ORDER BY r.created_at DESC';
+
+        $requests = $this->connection->fetchAllAssociative($sql, $params);
+
+        // Récupérer tous les projets pour le filtre
+        $projects = $this->connection->fetchAllAssociative(
+            'SELECT slug, name FROM maestro.projects ORDER BY name ASC'
+        );
+
+        // Statistiques
+        $stats = [
+            'total' => count($requests),
+            'pending' => count(array_filter($requests, fn($r) => $r['status'] === 'PENDING')),
+            'processing' => count(array_filter($requests, fn($r) => $r['status'] === 'PROCESSING')),
+            'completed' => count(array_filter($requests, fn($r) => $r['status'] === 'COMPLETED')),
+            'failed' => count(array_filter($requests, fn($r) => $r['status'] === 'FAILED')),
+        ];
+
+        return $this->render('request/list.html.twig', [
+            'requests' => $requests,
+            'projects' => $projects,
+            'current_project_slug' => $projectSlug,
+            'current_status' => $status,
+            'stats' => $stats,
+        ]);
+    }
+
+    /**
+     * Supprimer une requête
+     */
+    #[Route('/request/{id}/delete', name: 'app_request_delete', methods: ['POST'])]
+    public function delete(string $id, Request $request): Response
+    {
+        // Vérifier le token CSRF
+        $token = $request->request->get('_token');
+        if (!$this->isCsrfTokenValid('delete_request_' . $id, $token)) {
+            $this->addFlash('error', 'Token CSRF invalide');
+            return $this->redirectToRoute('app_requests_list');
+        }
+
+        try {
+            // Supprimer la requête (cascade supprimera aussi l'analyse associée)
+            $this->connection->delete('maestro.requests', ['id' => $id]);
+
+            $this->addFlash('success', 'Requête supprimée avec succès');
+        } catch (\Exception $e) {
+            $this->addFlash('error', 'Erreur lors de la suppression: ' . $e->getMessage());
+        }
+
+        return $this->redirectToRoute('app_requests_list');
+    }
+
+    /**
      * Formulaire de soumission d'une nouvelle requête
      */
     #[Route('/request/new', name: 'app_request_new')]

@@ -1,0 +1,224 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Toutes les requêtes - MAESTRO{% endblock %}
+
+{% block body %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h3">
+                <i class="bi bi-list-task"></i> Toutes les requêtes
+            </h1>
+            <p class="text-muted">Suivi et gestion de toutes les demandes d'analyse</p>
+        </div>
+        <div class="col-auto">
+            <a href="{{ path('app_request_new') }}" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Nouvelle requête
+            </a>
+        </div>
+    </div>
+
+    {# Statistiques #}
+    <div class="row g-3 mb-4">
+        <div class="col-md-2">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="mb-0">{{ stats.total }}</h3>
+                    <small class="text-muted">Total</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card text-center border-warning">
+                <div class="card-body">
+                    <h3 class="mb-0 text-warning">{{ stats.pending }}</h3>
+                    <small class="text-muted">En attente</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card text-center border-info">
+                <div class="card-body">
+                    <h3 class="mb-0 text-info">{{ stats.processing }}</h3>
+                    <small class="text-muted">En cours</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card text-center border-success">
+                <div class="card-body">
+                    <h3 class="mb-0 text-success">{{ stats.completed }}</h3>
+                    <small class="text-muted">Terminées</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card text-center border-danger">
+                <div class="card-body">
+                    <h3 class="mb-0 text-danger">{{ stats.failed }}</h3>
+                    <small class="text-muted">Échecs</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# Filtres #}
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Projet</label>
+                    <select name="project" class="form-select" onchange="this.form.submit()">
+                        <option value="">Tous les projets</option>
+                        {% for project in projects %}
+                            <option value="{{ project.slug }}" {{ current_project_slug == project.slug ? 'selected' : '' }}>
+                                {{ project.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Statut</label>
+                    <select name="status" class="form-select" onchange="this.form.submit()">
+                        <option value="">Tous les statuts</option>
+                        <option value="PENDING" {{ current_status == 'PENDING' ? 'selected' : '' }}>En attente</option>
+                        <option value="PROCESSING" {{ current_status == 'PROCESSING' ? 'selected' : '' }}>En cours</option>
+                        <option value="COMPLETED" {{ current_status == 'COMPLETED' ? 'selected' : '' }}>Terminées</option>
+                        <option value="FAILED" {{ current_status == 'FAILED' ? 'selected' : '' }}>Échecs</option>
+                    </select>
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <a href="{{ path('app_requests_list') }}" class="btn btn-outline-secondary">
+                        <i class="bi bi-x-circle"></i> Réinitialiser
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {# Liste des requêtes #}
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th style="width: 50px">#</th>
+                            <th>Requête</th>
+                            <th style="width: 150px">Projet</th>
+                            <th style="width: 120px">Statut</th>
+                            <th style="width: 100px">Analyse</th>
+                            <th style="width: 150px">Date</th>
+                            <th style="width: 180px">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if requests is empty %}
+                        <tr>
+                            <td colspan="7" class="text-center text-muted py-4">
+                                <i class="bi bi-inbox fs-1"></i>
+                                <p class="mb-0">Aucune requête trouvée</p>
+                            </td>
+                        </tr>
+                        {% else %}
+                            {% for request in requests %}
+                            <tr>
+                                <td>
+                                    <small class="text-muted">{{ loop.index }}</small>
+                                </td>
+                                <td>
+                                    <div class="text-truncate" style="max-width: 400px;" title="{{ request.request_text }}">
+                                        {{ request.request_text }}
+                                    </div>
+                                    {% if request.analysis_type %}
+                                        <small class="badge bg-secondary">{{ request.analysis_type }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <small>{{ request.project_name|default('N/A') }}</small>
+                                </td>
+                                <td>
+                                    {% if request.status == 'PENDING' %}
+                                        <span class="badge bg-warning text-dark">
+                                            <i class="bi bi-clock"></i> Attente
+                                        </span>
+                                    {% elseif request.status == 'PROCESSING' %}
+                                        <span class="badge bg-info">
+                                            <i class="bi bi-cpu"></i> En cours
+                                        </span>
+                                    {% elseif request.status == 'COMPLETED' %}
+                                        <span class="badge bg-success">
+                                            <i class="bi bi-check-circle"></i> Terminée
+                                        </span>
+                                    {% elseif request.status == 'FAILED' %}
+                                        <span class="badge bg-danger">
+                                            <i class="bi bi-x-circle"></i> Échec
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if request.analysis_id %}
+                                        <span class="badge bg-primary">{{ request.complexity }}</span>
+                                        <small class="text-muted d-block">{{ (request.confidence * 100)|round }}%</small>
+                                    {% else %}
+                                        <small class="text-muted">-</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <small class="text-muted">
+                                        {{ request.created_at|date('d/m/Y H:i') }}
+                                    </small>
+                                </td>
+                                <td class="text-nowrap">
+                                    <a href="{{ path('app_request_detail', {id: request.id}) }}"
+                                       class="btn btn-sm btn-outline-primary">
+                                        Voir
+                                    </a>
+                                    {% if request.analysis_id %}
+                                        <a href="{{ path('app_analysis_detail', {id: request.analysis_id}) }}"
+                                           class="btn btn-sm btn-outline-success ms-1">
+                                            Analyse
+                                        </a>
+                                    {% endif %}
+                                    <button type="button" class="btn btn-sm btn-outline-danger ms-1"
+                                            onclick="deleteRequest('{{ request.id }}')">
+                                        Supprimer
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Modal de confirmation de suppression #}
+<form method="post" id="deleteForm" style="display: none;">
+    <input type="hidden" name="_token" id="deleteToken">
+</form>
+
+<script>
+function deleteRequest(requestId) {
+    if (confirm('Êtes-vous sûr de vouloir supprimer cette requête ?\n\nCette action supprimera également l\'analyse associée si elle existe.')) {
+        const form = document.getElementById('deleteForm');
+        form.action = '/request/' + requestId + '/delete';
+
+        // Générer le token CSRF
+        fetch('/request/' + requestId + '/delete', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: '_token=' + encodeURIComponent('{{ csrf_token("delete_request_' + requestId + '") }}')
+        }).then(() => {
+            window.location.reload();
+        }).catch(error => {
+            alert('Erreur lors de la suppression');
+        });
+    }
+}
+</script>
+{% endblock %}

@@ -20,12 +20,6 @@ class Request
     #[ORM\Column(type: Types::TEXT)]
     private string $requestText;
 
-    #[ORM\Column(length: 50, nullable: true)]
-    private ?string $requestType = null;
-
-    #[ORM\Column(length: 20, nullable: true)]
-    private ?string $priority = null;
-
     #[ORM\Column(length: 20, options: ['default' => 'PENDING'])]
     private string $status = 'PENDING';
 
@@ -67,28 +61,6 @@ class Request
     public function setRequestText(string $requestText): self
     {
         $this->requestText = $requestText;
-        return $this;
-    }
-
-    public function getRequestType(): ?string
-    {
-        return $this->requestType;
-    }
-
-    public function setRequestType(?string $requestType): self
-    {
-        $this->requestType = $requestType;
-        return $this;
-    }
-
-    public function getPriority(): ?string
-    {
-        return $this->priority;
-    }
-
-    public function setPriority(?string $priority): self
-    {
-        $this->priority = $priority;
         return $this;
     }
 

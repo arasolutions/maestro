@@ -82,32 +82,6 @@
                         <div class="col-md-3"><strong>Projet:</strong></div>
                         <div class="col-md-9">{{ request.project_name|default('N/A') }}</div>
                     </div>
-                    {% if request.request_type %}
-                    <div class="row mb-3">
-                        <div class="col-md-3"><strong>Type:</strong></div>
-                        <div class="col-md-9">
-                            <span class="badge bg-secondary">{{ request.request_type }}</span>
-                            <small class="text-muted ms-2">(déterminé par l'orchestrator)</small>
-                        </div>
-                    </div>
-                    {% endif %}
-                    {% if request.priority %}
-                    <div class="row mb-3">
-                        <div class="col-md-3"><strong>Priorité:</strong></div>
-                        <div class="col-md-9">
-                            {% if request.priority == 'CRITICAL' %}
-                                <span class="badge bg-danger">Critique</span>
-                            {% elseif request.priority == 'HIGH' %}
-                                <span class="badge bg-warning text-dark">Haute</span>
-                            {% elseif request.priority == 'MEDIUM' %}
-                                <span class="badge bg-info">Moyenne</span>
-                            {% elseif request.priority == 'LOW' %}
-                                <span class="badge bg-secondary">Basse</span>
-                            {% endif %}
-                            <small class="text-muted ms-2">(déterminée par l'orchestrator)</small>
-                        </div>
-                    </div>
-                    {% endif %}
                     <div class="row mb-3">
                         <div class="col-md-3"><strong>Créée le:</strong></div>
                         <div class="col-md-9">{{ request.created_at|date('d/m/Y à H:i:s') }}</div>

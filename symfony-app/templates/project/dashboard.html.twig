@@ -159,8 +159,6 @@
                         <thead>
                             <tr>
                                 <th>Requête</th>
-                                <th>Type</th>
-                                <th>Priorité</th>
                                 <th>Statut</th>
                                 <th>Date</th>
                                 <th>Actions</th>
@@ -169,7 +167,7 @@
                         <tbody>
                             {% if stats.recent_requests is empty %}
                             <tr>
-                                <td colspan="6" class="text-center text-muted py-4">
+                                <td colspan="4" class="text-center text-muted py-4">
                                     Aucune requête pour le moment
                                 </td>
                             </tr>
@@ -177,27 +175,9 @@
                                 {% for request in stats.recent_requests %}
                                 <tr>
                                     <td>
-                                        <div class="text-truncate" style="max-width: 300px;">
+                                        <div class="text-truncate" style="max-width: 500px;">
                                             {{ request.request_text }}
                                         </div>
-                                    </td>
-                                    <td>
-                                        <span class="badge bg-secondary">
-                                            {{ request.request_type|default('N/A') }}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        {% if request.priority == 'CRITICAL' %}
-                                            <span class="badge bg-danger">Critique</span>
-                                        {% elseif request.priority == 'HIGH' %}
-                                            <span class="badge bg-warning text-dark">Haute</span>
-                                        {% elseif request.priority == 'MEDIUM' %}
-                                            <span class="badge bg-info">Moyenne</span>
-                                        {% elseif request.priority == 'LOW' %}
-                                            <span class="badge bg-secondary">Basse</span>
-                                        {% else %}
-                                            <span class="badge bg-light text-dark">N/A</span>
-                                        {% endif %}
                                     </td>
                                     <td>
                                         {% if request.status == 'PENDING' %}
