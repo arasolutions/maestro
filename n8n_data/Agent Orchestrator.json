@@ -122,7 +122,12 @@
         "specifyBody": "json",
         "jsonBody": "={\n  \"analysis_id\": \"{{ $json.analysis_id }}\",\n  \"request_id\": \"{{ $json.request_id }}\",\n  \"request_text\": \"{{ $json.original_request }}\",\n  \"complexity\": \"{{ $json.complexity }}\",\n  \"priority\": \"{{ $json.priority }}\",\n  \"project_id\": \"{{ $json.project_id }}\"\n}",
         "options": {
-          "timeout": 60000
+          "timeout": 60000,
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
         }
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -193,7 +198,12 @@
         "specifyBody": "json",
         "jsonBody": "={\n  \"analysis_id\": \"{{ $json.analysis_id }}\",\n  \"request_id\": \"{{ $json.request_id }}\",\n  \"cadrage_id\": \"{{ $json.cadrage_id }}\",\n  \"request_text\": \"{{ $json.original_request }}\",\n  \"complexity\": \"{{ $json.complexity }}\"\n}",
         "options": {
-          "timeout": 90000
+          "timeout": 90000,
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
         }
       },
       "type": "n8n-nodes-base.httpRequest",

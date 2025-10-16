@@ -2,7 +2,15 @@
   "permissions": {
     "allow": [
       "Bash(curl -X POST \"https://n8n.maestro.ara-solutions.cloud/webhook/orchestrate\" -H \"Content-Type: application/json\" -d '{\"\"\"\"analysis_id\"\"\"\":\"\"\"\"080076c2-da78-4d85-add4-8dc6bf108d08\"\"\"\",\"\"\"\"request_id\"\"\"\":\"\"\"\"8056ffb9-0fcb-4e81-acd9-554ca6678ce8\"\"\"\",\"\"\"\"project_id\"\"\"\":\"\"\"\"d7ac8d27-1c0d-41cb-99b5-c7e79b0d7089\"\"\"\"}')",
-      "Bash(curl -X POST https://n8n.maestro.ara-solutions.cloud/webhook/orchestrate -H \"Content-Type: application/json\" -d \"{\"\"analysis_id\"\":\"\"080076c2-da78-4d85-add4-8dc6bf108d08\"\",\"\"request_id\"\":\"\"8056ffb9-0fcb-4e81-acd9-554ca6678ce8\"\",\"\"project_id\"\":\"\"d7ac8d27-1c0d-41cb-99b5-c7e79b0d7089\"\"}\")"
+      "Bash(curl -X POST https://n8n.maestro.ara-solutions.cloud/webhook/orchestrate -H \"Content-Type: application/json\" -d \"{\"\"analysis_id\"\":\"\"080076c2-da78-4d85-add4-8dc6bf108d08\"\",\"\"request_id\"\":\"\"8056ffb9-0fcb-4e81-acd9-554ca6678ce8\"\",\"\"project_id\"\":\"\"d7ac8d27-1c0d-41cb-99b5-c7e79b0d7089\"\"}\")",
+      "Bash(curl -X POST https://n8n.maestro.ara-solutions.cloud/webhook/orchestrate -H \"Content-Type: application/json\" -d \"{\"\"analysis_id\"\":\"\"080076c2-da78-4d85-add4-8dc6bf108d08\"\",\"\"request_id\"\":\"\"8056ffb9-0fcb-4e81-acd9-554ca6678ce8\"\",\"\"project_id\"\":\"\"d7ac8d27-1c0d-41cb-99b5-c7e79b0d7089\"\"}\" -w \"\\n\\nHTTP Status: %{http_code}\\nTime: %{time_total}s\\n\" --max-time 120)",
+      "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console doctrine:query:sql \"SELECT id, analysis_id, created_at FROM maestro.cadrages WHERE id = ''a613a401-e216-46d9-aa99-40f05f7b1c61''\")",
+      "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console doctrine:query:sql \"SELECT id, analysis_id, story_points FROM maestro.user_stories WHERE analysis_id = ''080076c2-da78-4d85-add4-8dc6bf108d08'' ORDER BY created_at DESC LIMIT 1\")",
+      "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console doctrine:query:sql \"SELECT id, status, updated_at FROM maestro.requests WHERE id = ''8056ffb9-0fcb-4e81-acd9-554ca6678ce8''\")",
+      "Bash(curl:*)",
+      "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console doctrine:query:sql \"SELECT id, analysis_id, created_at FROM maestro.cadrages WHERE id = ''d355798a-bff2-4df2-bfda-0e0f56b05c99''\")",
+      "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console doctrine:query:sql \"SELECT id, analysis_id, story_points, created_at FROM maestro.user_stories WHERE analysis_id = ''080076c2-da78-4d85-add4-8dc6bf108d08'' ORDER BY created_at DESC LIMIT 1\")",
+      "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console doctrine:query:sql \"SELECT id, perimetre, created_at FROM maestro.cadrages WHERE id = ''28594b90-d6df-44b7-9e81-2ff2c53e54ce''\")"
     ],
     "deny": [],
     "ask": [],
