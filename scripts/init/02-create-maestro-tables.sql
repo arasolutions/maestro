@@ -90,18 +90,27 @@ CREATE TABLE IF NOT EXISTS maestro.cadrage_proposals (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Table des user stories (US Agent)
+-- Table des user stories (US Agent) - Une ligne par User Story
 CREATE TABLE IF NOT EXISTS maestro.user_stories (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID REFERENCES maestro.projects(id) ON DELETE CASCADE,
     analysis_id UUID REFERENCES maestro.analyses(id) ON DELETE CASCADE,
-    cadrage_id UUID REFERENCES maestro.cadrages(id) ON DELETE SET NULL,
-    stories JSONB NOT NULL,
-    acceptance_criteria JSONB,
-    story_points INTEGER,
-    priority_order JSONB,
-    dependencies JSONB,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    cadrage_id UUID,
+    story_id VARCHAR(20) NOT NULL, -- US-001, US-002, etc.
+    title VARCHAR(255) NOT NULL,
+    as_a VARCHAR(100), -- Role (Product Owner, Developer, etc.)
+    i_want TEXT NOT NULL, -- User story description
+    so_that TEXT, -- Benefit/reason
+    priority VARCHAR(20) DEFAULT 'SHOULD', -- MUST, SHOULD, COULD, WONT
+    story_points INTEGER DEFAULT 0,
+    acceptance_criteria JSONB, -- Array of acceptance criteria
+    test_scenarios JSONB, -- Array of test scenarios
+    technical_notes TEXT,
+    dependencies JSONB, -- Array of story IDs this depends on
+    status VARCHAR(20) DEFAULT 'PENDING', -- PENDING, IN_PROGRESS, DONE, BLOCKED
+    assigned_to VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Table du code généré (Dev Agent)

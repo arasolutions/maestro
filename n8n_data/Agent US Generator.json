@@ -145,27 +145,27 @@
     },
     {
       "parameters": {
-        "jsCode": "// Parser la reponse Gemini\nconst geminiResponse = $input.first().json;\nconst mergedData = $('Merge Data for Gemini').first().json;\n\nconsole.log('=== AGENT USER STORIES ===');\nconsole.log('Analysis ID:', mergedData.analysis_id);\n\nlet userStories = {};\ntry {\n  const textContent = geminiResponse.candidates[0].content.parts[0].text;\n  userStories = JSON.parse(textContent);\n  console.log('OK ' + (userStories.stories?.length || 0) + ' User Stories generees');\n  console.log('Total points:', userStories.metrics?.total_points || 0);\n} catch(e) {\n  console.error('ERROR Erreur parsing Gemini:', e.message);\n  userStories = {\n    epic: { title: 'Erreur de parsing', goal: 'N/A' },\n    stories: [],\n    sprint_suggestion: {},\n    metrics: { total_points: 0, must_have_points: 0, should_have_points: 0, could_have_points: 0, estimated_sprints: 0 }\n  };\n}\n\n// Preparer pour la DB\nconst stories = userStories.stories || [];\nconst acceptanceCriteria = stories.length > 0 ? stories.map(s => s.acceptance_criteria || []).flat() : [];\nconst dependencies = stories.length > 0 ? stories.map(s => ({ id: s.id, deps: s.dependencies || [] })) : [];\n\nconst params = [\n  mergedData.analysis_id,\n  mergedData.cadrage_id || null,\n  JSON.stringify(stories),\n  JSON.stringify(acceptanceCriteria),\n  userStories.metrics?.total_points || 0,\n  JSON.stringify(userStories.sprint_suggestion || {}),\n  JSON.stringify(dependencies)\n];\n\nreturn [{ \n  json: { \n    params,\n    user_stories: userStories,\n    analysis_id: mergedData.analysis_id,\n    summary: {\n      total_stories: stories.length,\n      total_points: userStories.metrics?.total_points || 0,\n      must_have: stories.filter(s => s.priority === 'MUST').length,\n      estimated_sprints: userStories.metrics?.estimated_sprints || 0\n    }\n  }\n}];"
+        "jsCode": "// Parser la reponse Gemini et preparer une ligne par story\nconst geminiResponse = $input.first().json;\nconst mergedData = $('Merge Data for Gemini').first().json;\n\nconsole.log('=== AGENT USER STORIES ===');\nconsole.log('Analysis ID:', mergedData.analysis_id);\n\nlet userStories = {};\ntry {\n  const textContent = geminiResponse.candidates[0].content.parts[0].text;\n  userStories = JSON.parse(textContent);\n  console.log('OK ' + (userStories.stories?.length || 0) + ' User Stories generees');\n  console.log('Total points:', userStories.metrics?.total_points || 0);\n} catch(e) {\n  console.error('ERROR Erreur parsing Gemini:', e.message);\n  userStories = {\n    epic: { title: 'Erreur de parsing', goal: 'N/A' },\n    stories: [],\n    metrics: { total_points: 0 }\n  };\n}\n\n// Preparer un item par story pour insertion en DB\nconst stories = userStories.stories || [];\nconst results = stories.map(story => ({\n  analysis_id: mergedData.analysis_id,\n  cadrage_id: mergedData.cadrage_id || null,\n  story_id: story.id,\n  title: story.title,\n  as_a: story.as_a,\n  i_want: story.i_want,\n  so_that: story.so_that,\n  priority: story.priority || 'SHOULD',\n  story_points: story.story_points || 0,\n  acceptance_criteria: JSON.stringify(story.acceptance_criteria || []),\n  test_scenarios: JSON.stringify(story.test_scenarios || []),\n  technical_notes: story.technical_notes || '',\n  dependencies: JSON.stringify(story.dependencies || [])\n}));\n\nconsole.log('Prepared ' + results.length + ' stories for DB insertion');\n\nreturn results.map(r => ({ json: r }));"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [560, 240],
       "id": "prepare-us-data",
-      "name": "Prepare US Data"
+      "name": "Prepare US Data (One Row Per Story)"
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO maestro.user_stories (\n  analysis_id,\n  cadrage_id,\n  stories,\n  acceptance_criteria,\n  story_points,\n  priority_order,\n  dependencies\n) VALUES (\n  $1::uuid,\n  $2::uuid,\n  $3::jsonb,\n  $4::jsonb,\n  $5,\n  $6::jsonb,\n  $7::jsonb\n) RETURNING id, created_at;",
+        "query": "INSERT INTO maestro.user_stories (\n  analysis_id,\n  cadrage_id,\n  story_id,\n  title,\n  as_a,\n  i_want,\n  so_that,\n  priority,\n  story_points,\n  acceptance_criteria,\n  test_scenarios,\n  technical_notes,\n  dependencies,\n  status\n) VALUES (\n  $1::uuid,\n  $2::uuid,\n  $3,\n  $4,\n  $5,\n  $6,\n  $7,\n  $8,\n  $9,\n  $10::jsonb,\n  $11::jsonb,\n  $12,\n  $13::jsonb,\n  'PENDING'\n) RETURNING id, story_id, created_at;",
         "options": {
-          "queryReplacement": "={{ $json.params }}"
+          "queryReplacement": "={{ [\n  $json.analysis_id,\n  $json.cadrage_id,\n  $json.story_id,\n  $json.title,\n  $json.as_a,\n  $json.i_want,\n  $json.so_that,\n  $json.priority,\n  $json.story_points,\n  $json.acceptance_criteria,\n  $json.test_scenarios,\n  $json.technical_notes,\n  $json.dependencies\n] }}"
         }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [760, 240],
       "id": "save-us",
-      "name": "Save User Stories to DB",
+      "name": "Save Each User Story (Loop)",
       "credentials": {
         "postgres": {
           "id": "TxOzBdadKcgasYEn",
@@ -175,8 +175,18 @@
     },
     {
       "parameters": {
+        "jsCode": "// Aggreger les resultats de toutes les insertions\nconst insertions = $input.all();\nconst analysis_id = insertions[0]?.json?.analysis_id || 'unknown';\n\nconst storyIds = insertions.map(i => i.json.story_id);\nconst totalStories = insertions.length;\nconst firstCreatedAt = insertions[0]?.json?.created_at;\n\nconsole.log('Successfully inserted ' + totalStories + ' user stories');\n\nreturn [{\n  json: {\n    status: 'success',\n    agent: 'US',\n    message: totalStories + ' User Stories créées avec succès',\n    analysis_id: analysis_id,\n    total_stories: totalStories,\n    story_ids: storyIds,\n    created_at: firstCreatedAt\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 240],
+      "id": "aggregate-results",
+      "name": "Aggregate Results"
+    },
+    {
+      "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({\n  \"status\": \"success\",\n  \"agent\": \"US\",\n  \"message\": \"User Stories generees avec succes\",\n  \"us_id\": $json.id,\n  \"analysis_id\": $('Prepare US Data').item.json.analysis_id,\n  \"created_at\": $json.created_at,\n  \"summary\": $('Prepare US Data').item.json.summary,\n  \"stories_preview\": $('Prepare US Data').item.json.user_stories.stories.slice(0, 3).map(s => ({\n    id: s.id,\n    title: s.title,\n    points: s.story_points,\n    priority: s.priority\n  }))\n}, null, 2) }}",
+        "responseBody": "={{ JSON.stringify($json, null, 2) }}",
         "options": {
           "responseHeaders": {
             "entries": [
@@ -190,7 +200,7 @@
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.4,
-      "position": [960, 240],
+      "position": [1160, 240],
       "id": "respond-us",
       "name": "Respond Success"
     }
@@ -218,12 +228,15 @@
       "main": [[{"node": "Gemini US Generation", "type": "main", "index": 0}]]
     },
     "Gemini US Generation": {
-      "main": [[{"node": "Prepare US Data", "type": "main", "index": 0}]]
+      "main": [[{"node": "Prepare US Data (One Row Per Story)", "type": "main", "index": 0}]]
     },
-    "Prepare US Data": {
-      "main": [[{"node": "Save User Stories to DB", "type": "main", "index": 0}]]
+    "Prepare US Data (One Row Per Story)": {
+      "main": [[{"node": "Save Each User Story (Loop)", "type": "main", "index": 0}]]
     },
-    "Save User Stories to DB": {
+    "Save Each User Story (Loop)": {
+      "main": [[{"node": "Aggregate Results", "type": "main", "index": 0}]]
+    },
+    "Aggregate Results": {
       "main": [[{"node": "Respond Success", "type": "main", "index": 0}]]
     }
   },

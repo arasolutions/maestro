@@ -38,7 +38,7 @@ class UserStoryController extends AbstractController
             'search' => $request->query->get('search', ''),
         ];
 
-        // Build query
+        // Build query - Now each story is a row
         $sql = 'SELECT us.*, a.request_text, a.complexity, a.created_at as analysis_date
                 FROM maestro.user_stories us
                 INNER JOIN maestro.analyses a ON us.analysis_id = a.id
@@ -46,57 +46,31 @@ class UserStoryController extends AbstractController
 
         $params = ['projectId' => $projectId];
 
-        // Note: status filtering would require a status column in user_stories table
-        // For now, we'll get all stories and filter in the template if needed
-
-        $sql .= ' ORDER BY us.created_at DESC';
-
-        $userStoriesRaw = $this->connection->fetchAllAssociative($sql, $params);
-
-        // Decode JSONB fields and flatten stories
-        $allStories = [];
-        foreach ($userStoriesRaw as $us) {
-            $stories = json_decode($us['stories'], true);
-            if (is_array($stories)) {
-                foreach ($stories as $story) {
-                    $allStories[] = [
-                        'id' => $story['id'] ?? 'N/A',
-                        'title' => $story['title'] ?? 'Sans titre',
-                        'priority' => $story['priority'] ?? 'COULD',
-                        'story_points' => $story['story_points'] ?? 0,
-                        'as_a' => $story['as_a'] ?? '',
-                        'i_want' => $story['i_want'] ?? '',
-                        'so_that' => $story['so_that'] ?? '',
-                        'acceptance_criteria' => $story['acceptance_criteria'] ?? [],
-                        'test_scenarios' => $story['test_scenarios'] ?? [],
-                        'dependencies' => $story['dependencies'] ?? [],
-                        'technical_notes' => $story['technical_notes'] ?? '',
-                        'status' => $story['status'] ?? 'TODO', // Default status
-                        'analysis_id' => $us['analysis_id'],
-                        'request_text' => $us['request_text'],
-                        'complexity' => $us['complexity'],
-                        'analysis_date' => $us['analysis_date'],
-                    ];
-                }
-            }
-        }
-
-        // Apply filters
-        if ($filters['priority']) {
-            $allStories = array_filter($allStories, fn($s) => $s['priority'] === $filters['priority']);
-        }
-
+        // Add filters directly to SQL now that we have proper columns
         if ($filters['status']) {
-            $allStories = array_filter($allStories, fn($s) => $s['status'] === $filters['status']);
+            $sql .= ' AND us.status = :status';
+            $params['status'] = $filters['status'];
+        }
+
+        if ($filters['priority']) {
+            $sql .= ' AND us.priority = :priority';
+            $params['priority'] = $filters['priority'];
         }
 
         if ($filters['search']) {
-            $search = strtolower($filters['search']);
-            $allStories = array_filter($allStories, function($s) use ($search) {
-                return str_contains(strtolower($s['title']), $search) ||
-                       str_contains(strtolower($s['i_want']), $search) ||
-                       str_contains(strtolower($s['as_a']), $search);
-            });
+            $sql .= ' AND (LOWER(us.title) LIKE :search OR LOWER(us.i_want) LIKE :search OR LOWER(us.as_a) LIKE :search)';
+            $params['search'] = '%' . strtolower($filters['search']) . '%';
+        }
+
+        $sql .= ' ORDER BY us.created_at DESC, us.story_id ASC';
+
+        $allStories = $this->connection->fetchAllAssociative($sql, $params);
+
+        // Decode JSONB fields for each story
+        foreach ($allStories as &$story) {
+            $story['acceptance_criteria'] = json_decode($story['acceptance_criteria'] ?? '[]', true);
+            $story['test_scenarios'] = json_decode($story['test_scenarios'] ?? '[]', true);
+            $story['dependencies'] = json_decode($story['dependencies'] ?? '[]', true);
         }
 
         // Calculate statistics

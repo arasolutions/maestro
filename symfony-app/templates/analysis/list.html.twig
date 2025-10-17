@@ -146,7 +146,8 @@
                                                     data-bs-toggle="modal"
                                                     data-bs-target="#deleteModal"
                                                     data-analysis-id="{{ analysis.id }}"
-                                                    data-analysis-title="{{ analysis.request_text|slice(0, 50) }}...">
+                                                    data-analysis-title="{{ analysis.request_text|slice(0, 50) }}..."
+                                                    data-csrf-token="{{ csrf_token('delete_analysis_' ~ analysis.id) }}">
                                                 <i class="bi bi-trash"></i> Supprimer
                                             </button>
                                         </div>
@@ -239,6 +240,7 @@ if (deleteModal) {
         const button = event.relatedTarget;
         const analysisId = button.getAttribute('data-analysis-id');
         const analysisTitle = button.getAttribute('data-analysis-title');
+        const csrfToken = button.getAttribute('data-csrf-token');
 
         // Update modal content
         document.getElementById('modalAnalysisTitle').textContent = analysisTitle;
@@ -247,8 +249,8 @@ if (deleteModal) {
         const form = document.getElementById('deleteForm');
         form.action = '{{ path('app_analysis_delete', {id: '__ID__'}) }}'.replace('__ID__', analysisId);
 
-        const token = '{{ csrf_token('delete_analysis___ID__') }}'.replace('__ID__', analysisId);
-        document.getElementById('deleteToken').value = token;
+        // Use the pre-generated CSRF token from the button
+        document.getElementById('deleteToken').value = csrfToken;
     });
 }
 </script>

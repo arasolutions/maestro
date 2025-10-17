@@ -541,7 +541,9 @@
 {% endif %}
 
 {# User Stories Section #}
-{% if userStories %}
+{% if userStories is not empty %}
+{% set total_points = 0 %}
+{% for s in userStories %}{% set total_points = total_points + (s.story_points|default(0)) %}{% endfor %}
 <div class="row mb-4">
     <div class="col-12">
         <div class="card border-0 shadow-sm">
@@ -550,7 +552,7 @@
                     <h4 class="mb-0 text-white"><i class="bi bi-journal-text"></i> User Stories de cette analyse</h4>
                     <div class="d-flex align-items-center gap-3">
                         <span class="badge bg-light text-dark" style="font-size: 1rem;">
-                            {{ userStories.stories|length|default(0) }} stories • {{ userStories.story_points|default('N/A') }} pts
+                            {{ userStories|length }} stories • {{ total_points }} pts
                         </span>
                         {% if project %}
                         <a href="{{ path('app_project_user_stories', {projectId: project.id}) }}" class="btn btn-sm btn-light">
@@ -566,13 +568,13 @@
                     <div class="col-md-3">
                         <div class="text-center p-3 border rounded bg-light">
                             <h6 class="text-muted mb-2">Story Points Total</h6>
-                            <h2 class="text-primary mb-0">{{ userStories.story_points|default(0) }}</h2>
+                            <h2 class="text-primary mb-0">{{ total_points }}</h2>
                         </div>
                     </div>
                     <div class="col-md-3">
                         <div class="text-center p-3 border rounded bg-light">
                             <h6 class="text-muted mb-2">User Stories</h6>
-                            <h2 class="text-info mb-0">{{ userStories.stories|length|default(0) }}</h2>
+                            <h2 class="text-info mb-0">{{ userStories|length }}</h2>
                         </div>
                     </div>
                     <div class="col-md-3">
@@ -580,7 +582,7 @@
                             <h6 class="text-muted mb-2">MUST Have</h6>
                             <h2 class="text-danger mb-0">
                                 {% set must_count = 0 %}
-                                {% for story in userStories.stories %}
+                                {% for story in userStories %}
                                     {% if story.priority == 'MUST' %}
                                         {% set must_count = must_count + 1 %}
                                     {% endif %}
@@ -593,24 +595,23 @@
                         <div class="text-center p-3 border rounded bg-light">
                             <h6 class="text-muted mb-2">Sprints Estimés</h6>
                             <h2 class="text-warning mb-0">
-                                {{ (userStories.story_points / 20)|round(0, 'ceil')|default('N/A') }}
+                                {{ (total_points / 20)|round(0, 'ceil') }}
                             </h2>
                         </div>
                     </div>
                 </div>
 
                 {# User Stories Cards #}
-                {% if userStories.stories %}
                 <h5 class="mb-3 text-dark"><i class="bi bi-list-ul"></i> Stories Détaillées</h5>
                 <div class="row g-3">
-                    {% for story in userStories.stories %}
+                    {% for story in userStories %}
                     <div class="col-md-6 col-lg-4">
                         <div class="card h-100 border-start border-4 {% if story.priority == 'MUST' %}border-danger{% elseif story.priority == 'SHOULD' %}border-warning{% elseif story.priority == 'COULD' %}border-info{% else %}border-secondary{% endif %} shadow-sm">
                             <div class="card-body d-flex flex-column">
                                 {# Header #}
                                 <div class="mb-3">
                                     <div class="d-flex align-items-center flex-wrap gap-1 mb-2">
-                                        <span class="badge bg-secondary">{{ story.id }}</span>
+                                        <span class="badge bg-secondary">{{ story.story_id }}</span>
                                         <span class="badge {% if story.priority == 'MUST' %}bg-danger{% elseif story.priority == 'SHOULD' %}bg-warning{% elseif story.priority == 'COULD' %}bg-info{% else %}bg-secondary{% endif %}">
                                             {{ story.priority }}
                                         </span>
@@ -705,42 +706,6 @@
                     </div>
                     {% endfor %}
                 </div>
-                {% endif %}
-
-                {# Sprint Suggestion #}
-                {% if userStories.priority_order is defined and userStories.priority_order is not empty %}
-                <div class="mt-4">
-                    <h5 class="mb-3 text-dark"><i class="bi bi-calendar3"></i> Organisation en Sprints</h5>
-                    <div class="row g-3">
-                        {% for sprint_key, sprint in userStories.priority_order %}
-                        {% if sprint.stories is defined %}
-                        <div class="col-md-6">
-                            <div class="card border-primary">
-                                <div class="card-header bg-primary bg-opacity-10">
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <strong>{{ sprint_key|replace({'_': ' '})|title }}</strong>
-                                        {% if sprint.points is defined %}
-                                        <span class="badge bg-primary">{{ sprint.points }} pts</span>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                <div class="card-body">
-                                    {% if sprint.goal is defined %}
-                                    <p class="text-muted mb-2"><em>{{ sprint.goal }}</em></p>
-                                    {% endif %}
-                                    <ul class="list-unstyled mb-0">
-                                        {% for story_id in sprint.stories %}
-                                        <li><span class="badge bg-secondary me-1">{{ story_id }}</span></li>
-                                        {% endfor %}
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
-                        {% endif %}
-                        {% endfor %}
-                    </div>
-                </div>
-                {% endif %}
             </div>
         </div>
     </div>
@@ -748,7 +713,7 @@
 {% endif %}
 
 {# Orchestration Section #}
-{% if request and request.status == 'COMPLETED' and not cadrage and not userStories %}
+{% if request and request.status == 'COMPLETED' and not cadrage and userStories is empty %}
 <div class="row mb-4">
     <div class="col-12">
         <div class="card border-0 shadow-sm border-success">
@@ -776,6 +741,38 @@
                     <div class="col-md-4 text-end">
                         <button type="button" class="btn btn-success btn-lg" data-bs-toggle="modal" data-bs-target="#orchestrateModal">
                             <i class="bi bi-play-circle"></i> Lancer l'Orchestration
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{# Partial Orchestration - When some agents already ran #}
+{% if request and request.status == 'COMPLETED' and (cadrage or userStories is not empty) %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm border-primary">
+            <div class="card-header bg-primary bg-opacity-10 border-0 py-3">
+                <h5 class="mb-0 text-dark">🔄 Continuer l'Orchestration</h5>
+            </div>
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <p class="mb-2"><strong>Agents déjà exécutés :</strong></p>
+                        <p class="mb-2">
+                            {% if cadrage %}<span class="badge bg-success me-1">✓ CADRAGE</span>{% endif %}
+                            {% if userStories is not empty %}<span class="badge bg-success me-1">✓ USER STORIES</span>{% endif %}
+                        </p>
+                        <p class="text-muted mb-0">
+                            <small>Vous pouvez relancer l'orchestration complète pour exécuter les agents restants.</small>
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <button type="button" class="btn btn-primary btn-lg" data-bs-toggle="modal" data-bs-target="#orchestrateModal">
+                            <i class="bi bi-play-circle"></i> Relancer l'Orchestration
                         </button>
                     </div>
                 </div>

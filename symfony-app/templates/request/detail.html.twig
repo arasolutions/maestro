@@ -20,11 +20,18 @@
                 <h1 class="h3">
                     <i class="bi bi-file-text"></i> Détail de la requête
                 </h1>
-                {% if request.status == 'COMPLETED' and analysis %}
-                    <a href="{{ path('app_analysis_detail', {id: analysis.id}) }}" class="btn btn-primary">
-                        <i class="bi bi-bar-chart"></i> Voir l'analyse
-                    </a>
-                {% endif %}
+                <div class="d-flex gap-2">
+                    {% if request.status == 'COMPLETED' and analysis %}
+                        <a href="{{ path('app_analysis_detail', {id: analysis.id}) }}" class="btn btn-primary">
+                            <i class="bi bi-bar-chart"></i> Voir l'analyse
+                        </a>
+                    {% endif %}
+                    {% if request.status in ['COMPLETED', 'FAILED'] %}
+                        <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#retryModal">
+                            <i class="bi bi-arrow-clockwise"></i> Relancer l'analyse
+                        </button>
+                    {% endif %}
+                </div>
             </div>
 
             {# Status Card #}
@@ -135,4 +142,42 @@
         </div>
     </div>
 </div>
+
+{# Modal de confirmation pour relancer l'analyse #}
+<div class="modal fade" id="retryModal" tabindex="-1" aria-labelledby="retryModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning bg-opacity-10">
+                <h5 class="modal-title" id="retryModalLabel">
+                    <i class="bi bi-exclamation-triangle text-warning"></i> Confirmer la relance
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-3">Êtes-vous sûr de vouloir relancer l'analyse de cette requête ?</p>
+                <div class="alert alert-warning mb-0">
+                    <strong><i class="bi bi-info-circle"></i> Attention :</strong>
+                    <ul class="mb-0 mt-2">
+                        <li>L'analyse actuelle sera <strong>supprimée</strong></li>
+                        <li>Tous les cadrages associés seront <strong>supprimés</strong></li>
+                        <li>Toutes les user stories associées seront <strong>supprimées</strong></li>
+                        <li>Une nouvelle analyse sera créée</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle"></i> Annuler
+                </button>
+                <form method="post" action="{{ path('app_request_retry', {id: request.id}) }}" class="d-inline" data-turbo="false">
+                    <input type="hidden" name="_token" value="{{ csrf_token('retry_request_' ~ request.id) }}">
+                    <button type="submit" class="btn btn-warning">
+                        <i class="bi bi-arrow-clockwise"></i> Relancer l'analyse
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}

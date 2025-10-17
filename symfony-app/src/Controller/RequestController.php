@@ -229,14 +229,16 @@ class RequestController extends AbstractController
                     // Appeler n8n orchestrator
                     $response = $this->n8nService->triggerOrchestration($description, $metadata);
 
-                    // Enregistrer le webhook_execution_id si retourné par n8n
-                    if (isset($response['execution_id'])) {
-                        $this->connection->update('maestro.requests',
-                            ['webhook_execution_id' => $response['execution_id']],
-                            ['id' => $requestId],
-                            ['id' => 'uuid']
-                        );
-                    }
+                    // Si succès, mettre à jour le statut à COMPLETED
+                    $this->connection->update('maestro.requests',
+                        [
+                            'status' => 'COMPLETED',
+                            'webhook_execution_id' => $response['execution_id'] ?? null,
+                            'updated_at' => new \DateTime()
+                        ],
+                        ['id' => $requestId],
+                        ['id' => 'uuid', 'updated_at' => 'datetime']
+                    );
 
                     $this->addFlash('success', 'Votre requête a été soumise avec succès et est en cours d\'analyse par les agents IA');
 
@@ -340,22 +342,60 @@ class RequestController extends AbstractController
                 throw $this->createNotFoundException('Requête introuvable');
             }
 
-            // Vérifier que le statut est FAILED
-            if ($requestData['status'] !== 'FAILED') {
-                $this->addFlash('warning', 'Seules les requêtes échouées peuvent être relancées');
+            // Vérifier que le statut est FAILED ou COMPLETED
+            if (!in_array($requestData['status'], ['FAILED', 'COMPLETED'])) {
+                $this->addFlash('warning', 'Seules les requêtes terminées ou échouées peuvent être relancées');
                 return $this->redirectToRoute('app_request_detail', ['id' => $id]);
             }
 
-            // Mettre à jour le statut à PROCESSING
-            $this->connection->update('maestro.requests',
-                [
-                    'status' => 'PROCESSING',
-                    'error_message' => null,
-                    'updated_at' => new \DateTime()
-                ],
-                ['id' => $id],
-                ['id' => 'uuid', 'updated_at' => 'datetime']
-            );
+            // Supprimer les analyses, cadrages et user stories existants pour cette requête
+            $this->connection->beginTransaction();
+            try {
+                // Récupérer les IDs des analyses existantes
+                $analysisIds = $this->connection->fetchFirstColumn(
+                    'SELECT id FROM maestro.analyses WHERE request_id = :requestId',
+                    ['requestId' => $id]
+                );
+
+                if (!empty($analysisIds)) {
+                    // Supprimer les user stories
+                    $this->connection->executeStatement(
+                        'DELETE FROM maestro.user_stories WHERE analysis_id = ANY(:ids)',
+                        ['ids' => $analysisIds],
+                        ['ids' => \Doctrine\DBAL\ArrayParameterType::STRING]
+                    );
+
+                    // Supprimer les cadrages
+                    $this->connection->executeStatement(
+                        'DELETE FROM maestro.cadrage_proposals WHERE analysis_id = ANY(:ids)',
+                        ['ids' => $analysisIds],
+                        ['ids' => \Doctrine\DBAL\ArrayParameterType::STRING]
+                    );
+
+                    // Supprimer les analyses
+                    $this->connection->executeStatement(
+                        'DELETE FROM maestro.analyses WHERE id = ANY(:ids)',
+                        ['ids' => $analysisIds],
+                        ['ids' => \Doctrine\DBAL\ArrayParameterType::STRING]
+                    );
+                }
+
+                // Mettre à jour le statut à PROCESSING
+                $this->connection->update('maestro.requests',
+                    [
+                        'status' => 'PROCESSING',
+                        'error_message' => null,
+                        'updated_at' => new \DateTime()
+                    ],
+                    ['id' => $id],
+                    ['id' => 'uuid', 'updated_at' => 'datetime']
+                );
+
+                $this->connection->commit();
+            } catch (\Exception $e) {
+                $this->connection->rollBack();
+                throw $e;
+            }
 
             // Préparer les métadonnées
             $metadata = [
@@ -369,14 +409,16 @@ class RequestController extends AbstractController
             try {
                 $response = $this->n8nService->triggerOrchestration($requestData['request_text'], $metadata);
 
-                // Enregistrer le webhook_execution_id si retourné
-                if (isset($response['execution_id'])) {
-                    $this->connection->update('maestro.requests',
-                        ['webhook_execution_id' => $response['execution_id']],
-                        ['id' => $id],
-                        ['id' => 'uuid']
-                    );
-                }
+                // Si succès, mettre à jour le statut à COMPLETED
+                $this->connection->update('maestro.requests',
+                    [
+                        'status' => 'COMPLETED',
+                        'webhook_execution_id' => $response['execution_id'] ?? null,
+                        'updated_at' => new \DateTime()
+                    ],
+                    ['id' => $id],
+                    ['id' => 'uuid', 'updated_at' => 'datetime']
+                );
 
                 $this->addFlash('success', 'L\'analyse a été relancée avec succès');
 

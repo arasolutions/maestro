@@ -127,13 +127,22 @@ class AnalysisController extends AbstractController
             ['analysisId' => $id]
         );
 
-        // Récupérer les user stories associées
-        $userStories = $this->connection->fetchAssociative(
-            'SELECT * FROM maestro.user_stories WHERE analysis_id = :analysisId',
+        // Récupérer TOUTES les user stories associées (nouvelle structure: une ligne par story)
+        $userStoriesRaw = $this->connection->fetchAllAssociative(
+            'SELECT * FROM maestro.user_stories WHERE analysis_id = :analysisId ORDER BY story_id ASC',
             ['analysisId' => $id]
         );
 
-        // Décoder les champs JSON
+        // Décoder les champs JSON de chaque story
+        $userStories = [];
+        foreach ($userStoriesRaw as $story) {
+            $story['acceptance_criteria'] = $story['acceptance_criteria'] ? json_decode($story['acceptance_criteria'], true) : [];
+            $story['test_scenarios'] = $story['test_scenarios'] ? json_decode($story['test_scenarios'], true) : [];
+            $story['dependencies'] = $story['dependencies'] ? json_decode($story['dependencies'], true) : [];
+            $userStories[] = $story;
+        }
+
+        // Décoder les champs JSON de l'analyse
         if ($analysis['agents_needed']) {
             $analysis['agents_needed'] = json_decode($analysis['agents_needed'], true);
         }
@@ -153,13 +162,6 @@ class AnalysisController extends AbstractController
             $cadrage['architecture'] = $cadrage['architecture'] ? json_decode($cadrage['architecture'], true) : null;
             $cadrage['swot'] = $cadrage['swot'] ? json_decode($cadrage['swot'], true) : null;
             $cadrage['estimation'] = $cadrage['estimation'] ? json_decode($cadrage['estimation'], true) : null;
-        }
-
-        if ($userStories) {
-            $userStories['stories'] = $userStories['stories'] ? json_decode($userStories['stories'], true) : null;
-            $userStories['acceptance_criteria'] = $userStories['acceptance_criteria'] ? json_decode($userStories['acceptance_criteria'], true) : null;
-            $userStories['priority_order'] = $userStories['priority_order'] ? json_decode($userStories['priority_order'], true) : null;
-            $userStories['dependencies'] = $userStories['dependencies'] ? json_decode($userStories['dependencies'], true) : null;
         }
 
         // Récupérer la request associée pour vérifier le statut
