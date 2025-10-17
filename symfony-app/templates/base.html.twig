@@ -113,18 +113,18 @@
                             <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="workflowDropdown">
                                 <li>
                                     <a class="dropdown-item" href="{{ path('app_requests_list') }}">
-                                        <i class="bi bi-inbox"></i> Requêtes
+                                        📨 Requêtes
                                     </a>
                                 </li>
                                 <li>
                                     <a class="dropdown-item" href="{{ path('app_analyses_list') }}">
-                                        <i class="bi bi-bar-chart"></i> Analyses
+                                        📊 Analyses
                                     </a>
                                 </li>
                                 {% if app.session.get('current_project_id') %}
                                 <li>
                                     <a class="dropdown-item" href="{{ path('app_project_user_stories', {projectId: app.session.get('current_project_id')}) }}">
-                                        <i class="bi bi-list-check"></i> User Stories
+                                        📝 User Stories
                                     </a>
                                 </li>
                                 {% endif %}
