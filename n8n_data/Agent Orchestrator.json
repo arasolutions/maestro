@@ -1,5 +1,5 @@
 {
-  "name": "Agent Orchestrator",
+  "name": "MAESTRO - Agent Orchestrator",
   "nodes": [
     {
       "parameters": {
@@ -123,7 +123,13 @@
         "specifyBody": "json",
         "jsonBody": "={{ {\n  \"analysis_id\": $json.analysis_id,\n  \"request_id\": $json.request_id,\n  \"project_id\": $json.project_id,\n  \"request_text\": $json.original_request,\n  \"complexity\": $json.complexity\n} }}",
         "options": {
-          "timeout": 120000
+          "timeout": 120000,
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "autodetect"
+            }
+          }
         }
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -154,7 +160,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Récupérer le plan d'orchestration initial\nconst plan = $('Prepare Orchestration Plan').first().json;\nlet updatedPlan = { ...plan };\n\n// Si US a été exécuté, récupérer les infos\nif ($('Call US Agent').all().length > 0) {\n  const usResponse = $('Call US Agent').first().json;\n  updatedPlan.us_count = usResponse.total_stories || 0;\n  console.log('✅ US completed, stories created:', updatedPlan.us_count);\n} else {\n  console.log('⏭️ US skipped');\n}\n\nreturn [{ json: updatedPlan }];"
+        "jsCode": "// Récupérer le plan d'orchestration initial\nconst plan = $('Prepare Orchestration Plan').first().json;\nlet updatedPlan = { ...plan };\n\n// Si US a été exécuté, récupérer les infos\nif ($('Call US Agent').all().length > 0) {\n  const usResponse = $('Call US Agent').first().json;\n  \n  // Vérifier si la réponse est valide\n  if (usResponse && usResponse.status === 'success') {\n    updatedPlan.us_count = usResponse.total_stories || 0;\n    console.log('✅ US completed, stories created:', updatedPlan.us_count);\n  } else {\n    console.error('❌ US failed or returned invalid response');\n    updatedPlan.us_count = 0;\n    updatedPlan.us_error = true;\n  }\n} else {\n  console.log('⏭️ US skipped');\n}\n\nreturn [{ json: updatedPlan }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -314,7 +320,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Compiler tous les résultats de l'orchestration\nconst orchestrationPlan = $('Update Plan After DEV').first().json;\n\nconst results = {\n  request_id: orchestrationPlan.request_id,\n  analysis_id: orchestrationPlan.analysis_id,\n  project_id: orchestrationPlan.project_id,\n  timestamp: new Date().toISOString(),\n  complexity: orchestrationPlan.complexity,\n  agents_executed: [],\n  us_count: orchestrationPlan.us_count || 0\n};\n\n// Vérifier si US a été exécuté\nif ($('Call US Agent').all().length > 0) {\n  results.agents_executed.push('US');\n  console.log('✅ US completed');\n}\n\n// DEV\nif ($('DEV Agent (TODO)').all().length > 0) {\n  results.agents_executed.push('DEV (placeholder)');\n}\n\n// TEST\nif ($('TEST Agent (TODO)').all().length > 0) {\n  results.agents_executed.push('TEST (placeholder)');\n}\n\nresults.orchestration_status = 'COMPLETED';\nresults.summary = `Orchestration complétée avec ${results.agents_executed.length} agent(s): ${results.agents_executed.join(' → ')}`;\n\nif (results.us_count > 0) {\n  results.summary += ` | ${results.us_count} User Stories créées`;\n}\n\nconsole.log('=== ORCHESTRATION COMPLETE (sans CADRAGE) ===');\nconsole.log('Agents executed:', results.agents_executed.join(' → '));\nconsole.log('User Stories:', results.us_count);\n\nreturn [{ json: results }];"
+        "jsCode": "// Compiler tous les résultats de l'orchestration\nconst orchestrationPlan = $('Update Plan After DEV').first().json;\n\nconst results = {\n  request_id: orchestrationPlan.request_id,\n  analysis_id: orchestrationPlan.analysis_id,\n  project_id: orchestrationPlan.project_id,\n  timestamp: new Date().toISOString(),\n  complexity: orchestrationPlan.complexity,\n  agents_executed: [],\n  us_count: orchestrationPlan.us_count || 0,\n  errors: []\n};\n\n// Vérifier si US a été exécuté\nif ($('Call US Agent').all().length > 0) {\n  if (orchestrationPlan.us_error) {\n    results.errors.push('US generation failed');\n  } else {\n    results.agents_executed.push('US');\n    console.log('✅ US completed');\n  }\n}\n\n// DEV\nif ($('DEV Agent (TODO)').all().length > 0) {\n  results.agents_executed.push('DEV (placeholder)');\n}\n\n// TEST\nif ($('TEST Agent (TODO)').all().length > 0) {\n  results.agents_executed.push('TEST (placeholder)');\n}\n\nresults.orchestration_status = results.errors.length > 0 ? 'COMPLETED_WITH_ERRORS' : 'COMPLETED';\nresults.summary = `Orchestration complétée avec ${results.agents_executed.length} agent(s): ${results.agents_executed.join(' → ')}`;\n\nif (results.us_count > 0) {\n  results.summary += ` | ${results.us_count} User Stories créées`;\n}\n\nif (results.errors.length > 0) {\n  results.summary += ` | Erreurs: ${results.errors.join(', ')}`;\n}\n\nconsole.log('=== ORCHESTRATION COMPLETE (sans CADRAGE) ===');\nconsole.log('Agents executed:', results.agents_executed.join(' → '));\nconsole.log('User Stories:', results.us_count);\nif (results.errors.length > 0) {\n  console.log('Errors:', results.errors);\n}\n\nreturn [{ json: results }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,

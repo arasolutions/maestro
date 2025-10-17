@@ -1,4 +1,5 @@
 {
+  "name": "MAESTRO - Agent Analyzer",
   "nodes": [
     {
       "parameters": {
