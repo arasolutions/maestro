@@ -91,7 +91,7 @@
       "name": "Fetch Project Cadrage",
       "credentials": {
         "postgres": {
-          "id": "LZQHq6vDOsI91G4D",
+          "id": "TxOzBdadKcgasYEn",
           "name": "MAESTRO DB"
         }
       }
@@ -168,7 +168,7 @@
       "name": "Save User Stories to DB",
       "credentials": {
         "postgres": {
-          "id": "LZQHq6vDOsI91G4D",
+          "id": "TxOzBdadKcgasYEn",
           "name": "MAESTRO DB"
         }
       }

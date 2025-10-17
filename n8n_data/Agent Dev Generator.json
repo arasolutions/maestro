@@ -62,7 +62,7 @@
       "name": "Fetch Project Context",
       "credentials": {
         "postgres": {
-          "id": "LZQHq6vDOsI91G4D",
+          "id": "TxOzBdadKcgasYEn",
           "name": "MAESTRO DB"
         }
       }
@@ -129,7 +129,7 @@
       "name": "Save Generated Code",
       "credentials": {
         "postgres": {
-          "id": "LZQHq6vDOsI91G4D",
+          "id": "TxOzBdadKcgasYEn",
           "name": "MAESTRO DB"
         }
       }

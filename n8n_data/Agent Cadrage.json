@@ -9,8 +9,11 @@
       },
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
-      "position": [-640, 240],
-      "id": "webhook-cadrage",
+      "position": [
+        -192,
+        0
+      ],
+      "id": "f74edd43-8983-4b72-80b1-23f4ef1a349a",
       "name": "Webhook Cadrage",
       "webhookId": "cadrage-analysis"
     },
@@ -60,8 +63,11 @@
       },
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [-440, 240],
-      "id": "keep-input-cadrage",
+      "position": [
+        16,
+        0
+      ],
+      "id": "b39b87d9-c8cf-4703-97e5-498193c8803c",
       "name": "Keep Input Data"
     },
     {
@@ -74,12 +80,15 @@
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [-240, 240],
-      "id": "fetch-project-cadrage",
+      "position": [
+        208,
+        0
+      ],
+      "id": "517a1597-ecea-464a-918e-a43656165394",
       "name": "Fetch Project Cadrage",
       "credentials": {
         "postgres": {
-          "id": "LZQHq6vDOsI91G4D",
+          "id": "TxOzBdadKcgasYEn",
           "name": "MAESTRO DB"
         }
       }
@@ -90,8 +99,11 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-40, 240],
-      "id": "prepare-context",
+      "position": [
+        416,
+        0
+      ],
+      "id": "59a7b90d-0a16-4b4d-841a-2627f7ffea6f",
       "name": "Prepare Context for Gemini"
     },
     {
@@ -107,8 +119,11 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [160, 240],
-      "id": "gemini-cadrage",
+      "position": [
+        608,
+        0
+      ],
+      "id": "bba3de9a-6af0-4097-a028-e9ee2dce019f",
       "name": "Gemini Cadrage Analysis"
     },
     {
@@ -117,8 +132,11 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [360, 240],
-      "id": "prepare-cadrage",
+      "position": [
+        816,
+        0
+      ],
+      "id": "0736441d-2317-4178-b50d-28d435a49ce4",
       "name": "Prepare Cadrage Data"
     },
     {
@@ -131,12 +149,15 @@
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [560, 240],
-      "id": "save-cadrage-proposal",
+      "position": [
+        1008,
+        0
+      ],
+      "id": "eb5ae971-1949-476b-9554-06c9b16b31e3",
       "name": "Save Cadrage Proposal",
       "credentials": {
         "postgres": {
-          "id": "LZQHq6vDOsI91G4D",
+          "id": "TxOzBdadKcgasYEn",
           "name": "MAESTRO DB"
         }
       }
@@ -158,36 +179,96 @@
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.4,
-      "position": [760, 240],
-      "id": "respond-cadrage",
+      "position": [
+        1216,
+        0
+      ],
+      "id": "03a3ae00-155e-49b2-b369-c561a220987f",
       "name": "Respond Success"
     }
   ],
   "connections": {
     "Webhook Cadrage": {
-      "main": [[{"node": "Keep Input Data", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Keep Input Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Keep Input Data": {
-      "main": [[{"node": "Fetch Project Cadrage", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Fetch Project Cadrage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Fetch Project Cadrage": {
-      "main": [[{"node": "Prepare Context for Gemini", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Prepare Context for Gemini",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Prepare Context for Gemini": {
-      "main": [[{"node": "Gemini Cadrage Analysis", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Gemini Cadrage Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Gemini Cadrage Analysis": {
-      "main": [[{"node": "Prepare Cadrage Data", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Prepare Cadrage Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Prepare Cadrage Data": {
-      "main": [[{"node": "Save Cadrage Proposal", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Save Cadrage Proposal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Save Cadrage Proposal": {
-      "main": [[{"node": "Respond Success", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "pinData": {},
   "meta": {
-    "instanceId": "ed02db89d7f2488035bfec7b1491988dab1d203f160701f703954ad6afe22be8"
+    "templateCredsSetupCompleted": true,
+    "instanceId": "8aec55f8b9a0caa448f57088943fd7afb0b9b774028b0836658dd7229f03942d"
   }
 }

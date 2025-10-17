@@ -1,5 +1,4 @@
 {
-  "name": "Agent TEST - Test Generator",
   "nodes": [
     {
       "parameters": {
@@ -10,8 +9,11 @@
       },
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
-      "position": [220, 300],
-      "id": "webhook-test",
+      "position": [
+        -320,
+        -160
+      ],
+      "id": "f75697db-7384-4a75-90b9-ef04b9829717",
       "name": "Webhook TEST Generator",
       "webhookId": "test-generator"
     },
@@ -43,8 +45,11 @@
       },
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [440, 300],
-      "id": "keep-input-test",
+      "position": [
+        -96,
+        -160
+      ],
+      "id": "677b09e5-46db-430e-a41b-c96dac508358",
       "name": "Keep Input Data"
     },
     {
@@ -57,12 +62,15 @@
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [660, 300],
-      "id": "fetch-generated-code",
+      "position": [
+        128,
+        -160
+      ],
+      "id": "e1f5fb4f-c06a-42ab-beff-143884e7d29b",
       "name": "Fetch Generated Code",
       "credentials": {
         "postgres": {
-          "id": "LZQHq6vDOsI91G4D",
+          "id": "TxOzBdadKcgasYEn",
           "name": "MAESTRO DB"
         }
       }
@@ -73,8 +81,11 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [880, 300],
-      "id": "prepare-test-context",
+      "position": [
+        352,
+        -160
+      ],
+      "id": "d0ee9fbe-8b58-44b6-ae24-bd3f5e94aa69",
       "name": "Prepare TEST Context"
     },
     {
@@ -83,8 +94,11 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1100, 300],
-      "id": "prepare-gemini-test-prompt",
+      "position": [
+        560,
+        -160
+      ],
+      "id": "df4c5740-f3eb-49ef-bb65-9ba38b2d8531",
       "name": "Prepare Gemini TEST Prompt"
     },
     {
@@ -100,8 +114,11 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1320, 300],
-      "id": "gemini-test-gen",
+      "position": [
+        784,
+        -160
+      ],
+      "id": "f9f26bc7-c1c9-44b4-9c2a-fe938d3319f6",
       "name": "Gemini TEST Generation"
     },
     {
@@ -110,8 +127,11 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1540, 300],
-      "id": "prepare-test-data",
+      "position": [
+        1008,
+        -160
+      ],
+      "id": "850d5da8-afd0-4cb1-9b46-e45d6535ce95",
       "name": "Prepare Test Data"
     },
     {
@@ -124,12 +144,15 @@
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [1760, 300],
-      "id": "save-test-scenarios",
+      "position": [
+        1232,
+        -160
+      ],
+      "id": "55a0722f-d6d6-44d4-9da7-3f64e31ae07a",
       "name": "Save Test Scenarios",
       "credentials": {
         "postgres": {
-          "id": "LZQHq6vDOsI91G4D",
+          "id": "TxOzBdadKcgasYEn",
           "name": "MAESTRO DB"
         }
       }
@@ -142,39 +165,106 @@
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.4,
-      "position": [1980, 300],
-      "id": "respond-test-success",
+      "position": [
+        1440,
+        -160
+      ],
+      "id": "f7b548bf-c445-45c2-a81e-4c7e3eeadeb4",
       "name": "Respond Success"
     }
   ],
   "connections": {
     "Webhook TEST Generator": {
-      "main": [[{"node": "Keep Input Data", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Keep Input Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Keep Input Data": {
-      "main": [[{"node": "Fetch Generated Code", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Fetch Generated Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Fetch Generated Code": {
-      "main": [[{"node": "Prepare TEST Context", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Prepare TEST Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Prepare TEST Context": {
-      "main": [[{"node": "Prepare Gemini TEST Prompt", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Prepare Gemini TEST Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Prepare Gemini TEST Prompt": {
-      "main": [[{"node": "Gemini TEST Generation", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Gemini TEST Generation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Gemini TEST Generation": {
-      "main": [[{"node": "Prepare Test Data", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Prepare Test Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Prepare Test Data": {
-      "main": [[{"node": "Save Test Scenarios", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Save Test Scenarios",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Save Test Scenarios": {
-      "main": [[{"node": "Respond Success", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "pinData": {},
-  "settings": {
-    "executionOrder": "v1"
+  "meta": {
+    "instanceId": "8aec55f8b9a0caa448f57088943fd7afb0b9b774028b0836658dd7229f03942d"
   }
 }

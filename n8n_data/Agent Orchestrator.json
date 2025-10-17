@@ -61,7 +61,7 @@
       "name": "Fetch Analysis from DB",
       "credentials": {
         "postgres": {
-          "id": "LZQHq6vDOsI91G4D",
+          "id": "TxOzBdadKcgasYEn",
           "name": "MAESTRO DB"
         }
       }
@@ -81,7 +81,7 @@
       "name": "Update Status: ORCHESTRATING",
       "credentials": {
         "postgres": {
-          "id": "LZQHq6vDOsI91G4D",
+          "id": "TxOzBdadKcgasYEn",
           "name": "MAESTRO DB"
         }
       }
@@ -383,7 +383,7 @@
       "name": "Update Status: COMPLETED",
       "credentials": {
         "postgres": {
-          "id": "LZQHq6vDOsI91G4D",
+          "id": "TxOzBdadKcgasYEn",
           "name": "MAESTRO DB"
         }
       }
