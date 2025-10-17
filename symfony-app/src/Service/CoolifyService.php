@@ -9,15 +9,19 @@ class CoolifyService
 {
     private string $coolifyUrl;
     private string $coolifyToken;
+    private string $appDomain;
+    private ?string $serverUuid = null;
 
     public function __construct(
         private readonly HttpClientInterface $httpClient,
         private readonly LoggerInterface $logger,
         string $coolifyUrl = 'https://coolify.maestro.ara-solutions.cloud',
-        string $coolifyToken = ''
+        string $coolifyToken = '',
+        string $appDomain = 'maestro.ara-solutions.cloud'
     ) {
         $this->coolifyUrl = rtrim($coolifyUrl, '/');
         $this->coolifyToken = $coolifyToken;
+        $this->appDomain = $appDomain;
     }
 
     /**
@@ -252,7 +256,7 @@ class CoolifyService
 
     /**
      * Setup complete Coolify environment for a project (AUTOMATIC)
-     * Creates project + staging + production applications
+     * Creates project + applications in Production environment
      */
     public function setupProject(string $projectSlug, string $projectName, string $giteaRepoUrl): array
     {
@@ -269,13 +273,24 @@ class CoolifyService
 
             $projectUuid = $projectResult['uuid'];
 
+            // Add Gitea token to repository URL for authentication
+            $giteaToken = $_ENV['GITEA_API_TOKEN'] ?? '';
+            $giteaUser = 'maestro';
+
+            // Inject token into URL: https://user:token@git.domain.com/repo
+            $authenticatedUrl = $giteaRepoUrl;
+            if ($giteaToken && preg_match('#^(https?://)(.+)$#', $giteaRepoUrl, $matches)) {
+                $authenticatedUrl = $matches[1] . $giteaUser . ':' . $giteaToken . '@' . $matches[2];
+            }
+
             // Step 2: Create Staging application
+            $stagingDomain = 'staging-' . $projectSlug . '.' . $this->appDomain;
             $stagingResult = $this->createApplication(
                 $projectUuid,
                 $projectSlug . '-staging',
-                $giteaRepoUrl,
+                $authenticatedUrl,
                 'main',
-                'staging-' . $projectSlug . '.maestro.ara-solutions.cloud',
+                $stagingDomain,
                 'staging'
             );
 
@@ -284,12 +299,13 @@ class CoolifyService
             }
 
             // Step 3: Create Production application
+            $productionDomain = $projectSlug . '.' . $this->appDomain;
             $productionResult = $this->createApplication(
                 $projectUuid,
                 $projectSlug . '-production',
-                $giteaRepoUrl,
+                $authenticatedUrl,
                 'main',
-                $projectSlug . '.maestro.ara-solutions.cloud',
+                $productionDomain,
                 'production'
             );
 
@@ -307,9 +323,9 @@ class CoolifyService
                 'success' => true,
                 'coolify_project_uuid' => $projectUuid,
                 'coolify_staging_uuid' => $stagingResult['uuid'],
-                'coolify_staging_url' => 'https://staging-' . $projectSlug . '.maestro.ara-solutions.cloud',
+                'coolify_staging_url' => 'https://' . $stagingDomain,
                 'coolify_production_uuid' => $productionResult['uuid'],
-                'coolify_production_url' => 'https://' . $projectSlug . '.maestro.ara-solutions.cloud',
+                'coolify_production_url' => 'https://' . $productionDomain,
             ];
 
         } catch (\Exception $e) {
@@ -322,6 +338,41 @@ class CoolifyService
                 'success' => false,
                 'error' => $e->getMessage(),
             ];
+        }
+    }
+
+    /**
+     * Get the default server UUID from Coolify
+     */
+    private function getServerUuid(): ?string
+    {
+        // Cache the server UUID to avoid multiple API calls
+        if ($this->serverUuid !== null) {
+            return $this->serverUuid;
+        }
+
+        try {
+            $response = $this->httpClient->request('GET', $this->coolifyUrl . '/api/v1/servers', [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $this->coolifyToken,
+                    'Accept' => 'application/json',
+                ],
+            ]);
+
+            if ($response->getStatusCode() === 200) {
+                $data = $response->toArray();
+                if (count($data) > 0) {
+                    $this->serverUuid = $data[0]['uuid'];
+                    $this->logger->info('Got server UUID', ['server_uuid' => $this->serverUuid]);
+                    return $this->serverUuid;
+                }
+            }
+
+            return null;
+
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to get server UUID', ['error' => $e->getMessage()]);
+            return null;
         }
     }
 
@@ -365,6 +416,7 @@ class CoolifyService
 
     /**
      * Create an application in Coolify (staging or production)
+     * NOTE: Coolify API v4 structure - uses /api/v1/applications/public
      */
     private function createApplication(
         string $projectUuid,
@@ -375,53 +427,81 @@ class CoolifyService
         string $environment
     ): array {
         try {
+            // Get server UUID
+            $serverUuid = $this->getServerUuid();
+            if (!$serverUuid) {
+                throw new \Exception('Failed to get server UUID');
+            }
+
             $this->logger->info('Creating Coolify application', [
                 'name' => $appName,
-                'domain' => $domain
+                'domain' => $domain,
+                'project_uuid' => $projectUuid,
+                'server_uuid' => $serverUuid
             ]);
 
-            $response = $this->httpClient->request('POST', $this->coolifyUrl . '/api/v1/applications', [
+            // Coolify API v4 structure: /api/v1/applications/public
+            $response = $this->httpClient->request('POST', $this->coolifyUrl . '/api/v1/applications/public', [
                 'headers' => [
                     'Authorization' => 'Bearer ' . $this->coolifyToken,
                     'Content-Type' => 'application/json',
+                    'Accept' => 'application/json',
                 ],
                 'json' => [
                     'project_uuid' => $projectUuid,
+                    'server_uuid' => $serverUuid,
+                    'environment_name' => 'production',
+                    'destination_uuid' => 0,
+                    'type' => 'public',
                     'name' => $appName,
+                    'description' => 'MAESTRO - ' . $appName . ' - Domain: ' . $domain,
                     'git_repository' => $gitRepository,
                     'git_branch' => $gitBranch,
-                    'build_pack' => 'nixpacks', // Auto-detect PHP
-                    'domains' => [$domain],
-                    'environment_variables' => [
-                        'APP_ENV' => 'prod',
-                        'APP_DEBUG' => $environment === 'staging' ? '1' : '0',
-                    ],
-                    'install_command' => 'composer install --no-dev --optimize-autoloader',
-                    'build_command' => 'php bin/console cache:clear && php bin/console assets:install',
-                    'start_command' => 'php-fpm',
-                    'port' => 9000,
-                    'health_check_enabled' => true,
-                    'health_check_path' => '/health',
+                    'build_pack' => 'nixpacks',
+                    'ports_exposes' => '80',
+                    'instant_deploy' => false,
+                    // Note: domains field removed - Coolify validates domains against wildcard_domain
+                    // Domain should be configured manually in Coolify UI or after DNS is properly set
                 ],
             ]);
 
-            if ($response->getStatusCode() === 201) {
+            $statusCode = $response->getStatusCode();
+            $this->logger->info('Coolify API response', [
+                'status_code' => $statusCode,
+                'app' => $appName
+            ]);
+
+            if ($statusCode === 201 || $statusCode === 200) {
                 $data = $response->toArray();
+
+                $this->logger->info('Coolify response data', [
+                    'data' => $data,
+                    'app' => $appName
+                ]);
+
                 return [
                     'success' => true,
-                    'uuid' => $data['uuid'] ?? $data['id'],
+                    'uuid' => $data['uuid'] ?? $data['id'] ?? null,
                 ];
             }
 
+            $responseBody = $response->getContent(false);
+            $this->logger->error('Unexpected Coolify response', [
+                'status_code' => $statusCode,
+                'body' => $responseBody,
+                'app' => $appName
+            ]);
+
             return [
                 'success' => false,
-                'error' => 'Invalid response from Coolify',
+                'error' => 'Invalid response from Coolify (status: ' . $statusCode . ')',
             ];
 
         } catch (\Exception $e) {
             $this->logger->error('Failed to create Coolify application', [
                 'error' => $e->getMessage(),
-                'app' => $appName
+                'app' => $appName,
+                'trace' => $e->getTraceAsString()
             ]);
 
             return [

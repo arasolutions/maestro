@@ -42,3 +42,4 @@ services:
         arguments:
             $coolifyUrl: '%coolify_url%'
             $coolifyToken: '%coolify_token%'
+            $appDomain: 'maestro.ara-solutions.cloud'

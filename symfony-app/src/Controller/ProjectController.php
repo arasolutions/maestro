@@ -232,6 +232,19 @@ class ProjectController extends AbstractController
             return $this->redirectToRoute('app_projects_list');
         }
 
+        // Decode JSON fields for template
+        if ($project['config']) {
+            $project['config_decoded'] = json_decode($project['config'], true);
+        } else {
+            $project['config_decoded'] = [];
+        }
+
+        if ($project['project_cadrage']) {
+            $project['project_cadrage_decoded'] = json_decode($project['project_cadrage'], true);
+        } else {
+            $project['project_cadrage_decoded'] = [];
+        }
+
         return $this->render('project/edit.html.twig', [
             'project' => $project,
         ]);
@@ -504,9 +517,10 @@ class ProjectController extends AbstractController
             ]);
 
             $this->addFlash('success', sprintf(
-                'Environnements Coolify créés ! <br>
+                'Environnements Coolify créés avec succès ! <br>
                 🟡 <strong>Staging:</strong> <a href="%s" target="_blank" class="alert-link">%s</a><br>
-                🔴 <strong>Production:</strong> <a href="%s" target="_blank" class="alert-link">%s</a>',
+                🔴 <strong>Production:</strong> <a href="%s" target="_blank" class="alert-link">%s</a><br>
+                <small class="text-muted">⚠️ Les domaines doivent être configurés manuellement dans Coolify après configuration DNS</small>',
                 $result['coolify_staging_url'],
                 $result['coolify_staging_url'],
                 $result['coolify_production_url'],

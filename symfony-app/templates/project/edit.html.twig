@@ -30,7 +30,7 @@
 
                     <div class="mb-3">
                         <label for="technical_stack" class="form-label">Stack Technique</label>
-                        <textarea class="form-control" id="technical_stack" name="technical_stack" rows="6" placeholder="Ex: PHP 8.2, Symfony 7.3, PostgreSQL 15, React 18, etc.">{{ project.project_cadrage.architecture.stack_technique|default('') }}</textarea>
+                        <textarea class="form-control" id="technical_stack" name="technical_stack" rows="6" placeholder="Ex: PHP 8.2, Symfony 7.3, PostgreSQL 15, React 18, etc.">{{ project.project_cadrage_decoded.architecture.stack_technique|default('') }}</textarea>
                         <small class="form-text text-muted">Décrivez les technologies, frameworks, versions, etc. utilisés dans ce projet</small>
                     </div>
 
@@ -98,8 +98,7 @@
                 <hr class="my-4">
                 <h6 class="text-muted mb-3">🚀 Environnements Coolify</h6>
 
-                {% set config = project.config ? project.config|json_decode : {} %}
-                {% if config.coolify_project_uuid %}
+                {% if project.config_decoded.coolify_project_uuid is defined and project.config_decoded.coolify_project_uuid %}
                     <div class="card border-0 shadow-sm bg-light">
                         <div class="card-body">
                             <div class="mb-3">
@@ -112,8 +111,8 @@
                                         <div class="card-body">
                                             <h6 class="text-warning mb-2">🟡 STAGING</h6>
                                             <small class="text-muted d-block mb-2">Environnement de test</small>
-                                            {% if config.coolify_staging_url %}
-                                            <a href="{{ config.coolify_staging_url }}" target="_blank" class="btn btn-sm btn-outline-warning w-100">
+                                            {% if project.config_decoded.coolify_staging_url is defined %}
+                                            <a href="{{ project.config_decoded.coolify_staging_url }}" target="_blank" class="btn btn-sm btn-outline-warning w-100">
                                                 Ouvrir →
                                             </a>
                                             {% endif %}
@@ -125,8 +124,8 @@
                                         <div class="card-body">
                                             <h6 class="text-danger mb-2">🔴 PRODUCTION</h6>
                                             <small class="text-muted d-block mb-2">Environnement de production</small>
-                                            {% if config.coolify_production_url %}
-                                            <a href="{{ config.coolify_production_url }}" target="_blank" class="btn btn-sm btn-outline-danger w-100">
+                                            {% if project.config_decoded.coolify_production_url is defined %}
+                                            <a href="{{ project.config_decoded.coolify_production_url }}" target="_blank" class="btn btn-sm btn-outline-danger w-100">
                                                 Ouvrir →
                                             </a>
                                             {% endif %}
@@ -150,12 +149,9 @@
                                     <small class="text-muted">Créez automatiquement les environnements de déploiement</small>
                                 </div>
                                 {% if project.gitea_repo_id %}
-                                <form method="post" action="{{ path('app_coolify_init', {slug: project.slug}) }}" class="d-inline" data-turbo="false">
-                                    <input type="hidden" name="_token" value="{{ csrf_token('coolify_init_' ~ project.slug) }}">
-                                    <button type="submit" class="btn btn-primary" onclick="return confirm('Créer les environnements Coolify (Staging + Production) ?')">
-                                        🚀 Initialiser Coolify
-                                    </button>
-                                </form>
+                                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#coolifyInitModal">
+                                    🚀 Initialiser Coolify
+                                </button>
                                 {% else %}
                                 <button type="button" class="btn btn-secondary" disabled title="Initialisez d'abord le dépôt Gitea">
                                     🚀 Initialiser Coolify
@@ -176,6 +172,68 @@
                         </div>
                     </div>
                 {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Modal Confirmation Coolify Init #}
+<div class="modal fade" id="coolifyInitModal" tabindex="-1" aria-labelledby="coolifyInitModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="coolifyInitModalLabel">
+                    <i class="bi bi-rocket"></i> Initialiser Coolify
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i>
+                    <strong>Attention :</strong> Cette opération va créer automatiquement les environnements de déploiement dans Coolify.
+                </div>
+
+                <h6 class="mb-3">Ce qui sera créé :</h6>
+                <ul class="list-unstyled">
+                    <li class="mb-2">
+                        <i class="bi bi-check-circle text-success"></i>
+                        <strong>Projet Coolify :</strong> {{ project.name }}
+                    </li>
+                    <li class="mb-2">
+                        <i class="bi bi-check-circle text-warning"></i>
+                        <strong>Environnement STAGING :</strong><br>
+                        <code class="ms-4">staging-{{ project.slug }}.maestro.ara-solutions.cloud</code>
+                    </li>
+                    <li class="mb-2">
+                        <i class="bi bi-check-circle text-danger"></i>
+                        <strong>Environnement PRODUCTION :</strong><br>
+                        <code class="ms-4">{{ project.slug }}.maestro.ara-solutions.cloud</code>
+                    </li>
+                    <li class="mb-2">
+                        <i class="bi bi-check-circle text-primary"></i>
+                        <strong>Configuration SSL</strong> (Let's Encrypt automatique)
+                    </li>
+                    <li class="mb-2">
+                        <i class="bi bi-check-circle text-primary"></i>
+                        <strong>Build automatique</strong> (Nixpacks PHP)
+                    </li>
+                </ul>
+
+                <div class="alert alert-warning mb-0">
+                    <i class="bi bi-clock-history"></i>
+                    <strong>Durée estimée :</strong> 30-60 secondes
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle"></i> Annuler
+                </button>
+                <form method="post" action="{{ path('app_coolify_init', {slug: project.slug}) }}" class="d-inline" data-turbo="false">
+                    <input type="hidden" name="_token" value="{{ csrf_token('coolify_init_' ~ project.slug) }}">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-rocket"></i> Confirmer l'initialisation
+                    </button>
+                </form>
             </div>
         </div>
     </div>
