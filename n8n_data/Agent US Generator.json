@@ -1,4 +1,5 @@
 {
+  "name": "Agent US Generator v2",
   "nodes": [
     {
       "parameters": {
@@ -32,8 +33,8 @@
             },
             {
               "id": "field3",
-              "name": "cadrage_id",
-              "value": "={{ $json.body.cadrage_id }}",
+              "name": "project_id",
+              "value": "={{ $json.body.project_id }}",
               "type": "string"
             },
             {
@@ -60,35 +61,17 @@
     },
     {
       "parameters": {
-        "conditions": {
-          "string": [
-            {
-              "value1": "={{ $json.cadrage_id }}",
-              "operation": "isNotEmpty"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [-240, 240],
-      "id": "check-cadrage-exists",
-      "name": "Has Cadrage?"
-    },
-    {
-      "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT project_cadrage FROM maestro.projects WHERE id = (SELECT project_id FROM maestro.analyses WHERE id = $1::uuid)",
+        "query": "SELECT project_cadrage FROM maestro.projects WHERE id = $1::uuid",
         "options": {
-          "queryReplacement": "={{ $('Keep Input Data').item.json.analysis_id }}"
+          "queryReplacement": "={{ $('Keep Input Data').item.json.project_id }}"
         }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [-40, 120],
-      "id": "fetch-project-cadrage",
-      "name": "Fetch Project Cadrage",
+      "position": [-240, 240],
+      "id": "fetch-project-stack",
+      "name": "Fetch Project Stack",
       "credentials": {
         "postgres": {
           "id": "TxOzBdadKcgasYEn",
@@ -98,33 +81,13 @@
     },
     {
       "parameters": {
-        "assignments": {
-          "assignments": [
-            {
-              "id": "field1",
-              "name": "cadrage_info",
-              "value": "=Pas de cadrage disponible - Génération basée uniquement sur la demande",
-              "type": "string"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [-40, 360],
-      "id": "no-cadrage",
-      "name": "No Cadrage"
-    },
-    {
-      "parameters": {
-        "jsCode": "// Fusionner les donnees pour Gemini\nconst inputData = $('Keep Input Data').first().json;\nlet cadrageInfo = 'Pas de cadrage disponible';\n\n// Si le projet a un cadrage, l extraire\nif ($('Fetch Project Cadrage').all().length > 0) {\n  const projectData = $('Fetch Project Cadrage').first().json;\n  if (projectData.project_cadrage) {\n    const cadrage = projectData.project_cadrage;\n    cadrageInfo = '\\nPerimetre: ' + JSON.stringify(cadrage.perimetre, null, 2) + '\\nArchitecture proposee: ' + JSON.stringify(cadrage.architecture, null, 2) + '\\nEstimation: ' + (cadrage.estimation?.effort_jours || 'N/A') + ' jours\\n';\n  }\n}\n\nreturn [{\n  json: {\n    request_text: inputData.request_text,\n    complexity: inputData.complexity,\n    cadrage_info: cadrageInfo,\n    analysis_id: inputData.analysis_id,\n    cadrage_id: inputData.cadrage_id || null\n  }\n}];"
+        "jsCode": "// Préparer les données pour Gemini\nconst inputData = $('Keep Input Data').first().json;\nconst projectData = $input.first().json;\n\nconsole.log('=== AGENT USER STORIES v2 ===');\nconsole.log('Analysis ID:', inputData.analysis_id);\nconsole.log('Project ID:', inputData.project_id);\n\n// Extraire UNIQUEMENT la stack technique\nlet stackTechnique = 'Non spécifié';\n\nif (projectData?.project_cadrage?.architecture?.stack_technique) {\n  stackTechnique = projectData.project_cadrage.architecture.stack_technique;\n  console.log('Stack technique trouvée:', stackTechnique.substring(0, 100) + '...');\n} else {\n  console.log('Aucune stack technique définie');\n}\n\nreturn [{\n  json: {\n    request_text: inputData.request_text,\n    complexity: inputData.complexity,\n    stack_technique: stackTechnique,\n    analysis_id: inputData.analysis_id,\n    project_id: inputData.project_id,\n    request_id: inputData.request_id\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [160, 240],
-      "id": "merge-data-us",
-      "name": "Merge Data for Gemini"
+      "position": [-40, 240],
+      "id": "prepare-context",
+      "name": "Prepare Context"
     },
     {
       "parameters": {
@@ -132,40 +95,40 @@
         "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=AIzaSyCh8UXpXbf_E-NtkJC5QbMmbUpRw2zKN1M",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ {\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": 'Tu es le Product Owner de MAESTRO, expert en redaction de User Stories Agile.\\n\\n=== DEMANDE SPECIFIQUE A IMPLEMENTER ===\\n' + $json.request_text.replace(/\"/g, \"'\").replace(/\\n/g, \" \") + '\\n\\nComplexite estimee: ' + $json.complexity + '\\n\\n=== CONTEXTE TECHNIQUE DU PROJET (à utiliser UNIQUEMENT pour les contraintes techniques, pas pour ajouter des fonctionnalites) ===\\n' + $json.cadrage_info.replace(/\"/g, \"'\").replace(/\\n/g, \" \") + '\\n\\n⚠️ IMPORTANT: Tu dois generer des User Stories UNIQUEMENT pour la demande specifique ci-dessus. N ajoute PAS de fonctionnalites qui ne sont pas directement liees a cette demande. Le contexte technique sert uniquement a connaitre les contraintes (technologies, architecture, securite) mais PAS a definir le scope fonctionnel.\\n\\nMission:\\n1. Decomposer LA DEMANDE SPECIFIQUE en User Stories atomiques (1-5 jours max chacune)\\n2. Rester STRICTEMENT dans le perimetre de la demande\\n3. Format: En tant que [persona]... Je veux [action]... Afin de [benefice]...\\n4. Criteres acceptation en format Gherkin (Given/When/Then)\\n5. Estimation en story points (Fibonacci: 1,2,3,5,8,13)\\n6. Priorisation MoSCoW (MUST/SHOULD/COULD/WONT)\\n7. Identifier les dependances entre stories\\n8. Proposer une organisation en sprints\\n\\nExemple: Si la demande est Creer une page de CGV, tu dois generer des stories comme:\\n- US-001: Creer la structure HTML de la page CGV\\n- US-002: Rediger le contenu legal des CGV\\n- US-003: Ajouter le versioning des CGV\\nMAIS PAS des stories sur l authentification, la gestion utilisateurs, etc.\\n\\nReponds UNIQUEMENT en JSON avec cette structure exacte (pas de texte avant ou apres le JSON):\\n{\\n  \"epic\": {\\n    \"title\": \"Titre epic principal base sur la demande\",\\n    \"goal\": \"Objectif business mesurable\"\\n  },\\n  \"stories\": [\\n    {\\n      \"id\": \"US-001\",\\n      \"title\": \"Titre court et explicite\",\\n      \"as_a\": \"type utilisateur/persona\",\\n      \"i_want\": \"action/fonctionnalite souhaitee\",\\n      \"so_that\": \"benefice/valeur attendue\",\\n      \"acceptance_criteria\": [\\n        \"GIVEN [contexte initial] WHEN [action utilisateur] THEN [resultat attendu]\",\\n        \"GIVEN [autre contexte] WHEN [autre action] THEN [autre resultat]\"\\n      ],\\n      \"story_points\": 3,\\n      \"priority\": \"MUST\",\\n      \"dependencies\": [\"US-XXX\"],\\n      \"technical_notes\": \"Notes pour les developpeurs\",\\n      \"test_scenarios\": [\"Scenario de test 1\", \"Scenario de test 2\"]\\n    }\\n  ],\\n  \"sprint_suggestion\": {\\n    \"sprint_1\": {\\n      \"stories\": [\"US-001\", \"US-002\"],\\n      \"points\": 13,\\n      \"goal\": \"Objectif du sprint\"\\n    },\\n    \"sprint_2\": {\\n      \"stories\": [\"US-003\", \"US-004\"],\\n      \"points\": 15,\\n      \"goal\": \"Objectif du sprint\"\\n    },\\n    \"velocity_recommandee\": 20\\n  },\\n  \"metrics\": {\\n    \"total_points\": 45,\\n    \"must_have_points\": 25,\\n    \"should_have_points\": 15,\\n    \"could_have_points\": 5,\\n    \"estimated_sprints\": 3\\n  }\\n}'\n    }]\n  }],\n  \"generationConfig\": {\n    \"temperature\": 0.7,\n    \"topK\": 40,\n    \"topP\": 0.95,\n    \"maxOutputTokens\": 4096,\n    \"responseMimeType\": \"application/json\"\n  }\n} }}",
+        "jsonBody": "={{ {\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": `Tu es le Product Owner de MAESTRO, expert en rédaction de User Stories Agile.\n\n=== DEMANDE SPÉCIFIQUE À IMPLÉMENTER ===\n${$json.request_text}\n\nComplexité estimée: ${$json.complexity}\n\n=== STACK TECHNIQUE DU PROJET (contraintes uniquement) ===\n${$json.stack_technique}\n\n⚠️ RÈGLES STRICTES :\n1. Génère des User Stories UNIQUEMENT pour la demande ci-dessus\n2. N'ajoute AUCUNE fonctionnalité qui n'est pas explicitement demandée\n3. La stack technique sert UNIQUEMENT à connaître les contraintes techniques (langage, framework, base de données)\n4. Ne génère PAS de fonctionnalités annexes (auth, admin, monitoring, etc.) sauf si explicitement demandées\n\nMission :\n1. Décomposer LA DEMANDE en User Stories atomiques (1-5 jours max chacune)\n2. Format : En tant que [persona]... Je veux [action]... Afin de [bénéfice]...\n3. Critères d'acceptation en format Gherkin (Given/When/Then)\n4. Estimation en story points (Fibonacci: 1,2,3,5,8,13)\n5. Priorisation MoSCoW (MUST/SHOULD/COULD/WONT)\n6. Identifier les dépendances entre stories\n\nExemple : Si la demande est \"Créer une page de CGV\" :\n✅ US-001: Créer la structure HTML de la page CGV\n✅ US-002: Rédiger le contenu légal des CGV\n✅ US-003: Ajouter le versioning des CGV\n❌ PAS de stories sur l'authentification, la gestion utilisateurs, etc.\n\nRéponds UNIQUEMENT en JSON avec cette structure exacte :\n{\n  \"epic\": {\n    \"title\": \"Titre epic basé sur la demande\",\n    \"goal\": \"Objectif business mesurable\"\n  },\n  \"stories\": [\n    {\n      \"id\": \"US-001\",\n      \"title\": \"Titre court et explicite\",\n      \"as_a\": \"type utilisateur/persona\",\n      \"i_want\": \"action/fonctionnalité souhaitée\",\n      \"so_that\": \"bénéfice/valeur attendue\",\n      \"acceptance_criteria\": [\n        \"GIVEN [contexte] WHEN [action] THEN [résultat]\"\n      ],\n      \"story_points\": 3,\n      \"priority\": \"MUST\",\n      \"dependencies\": [],\n      \"technical_notes\": \"Notes techniques\",\n      \"test_scenarios\": [\"Scénario 1\"]\n    }\n  ],\n  \"metrics\": {\n    \"total_points\": 0,\n    \"must_have_points\": 0,\n    \"should_have_points\": 0,\n    \"could_have_points\": 0\n  }\n}`\n    }]\n  }],\n  \"generationConfig\": {\n    \"temperature\": 0.7,\n    \"topK\": 40,\n    \"topP\": 0.95,\n    \"maxOutputTokens\": 4096,\n    \"responseMimeType\": \"application/json\"\n  }\n} }}",
         "options": {
           "timeout": 90000
         }
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [360, 240],
+      "position": [160, 240],
       "id": "gemini-us",
       "name": "Gemini US Generation"
     },
     {
       "parameters": {
-        "jsCode": "// Parser la reponse Gemini et preparer une ligne par story\nconst geminiResponse = $input.first().json;\nconst mergedData = $('Merge Data for Gemini').first().json;\n\nconsole.log('=== AGENT USER STORIES ===');\nconsole.log('Analysis ID:', mergedData.analysis_id);\n\nlet userStories = {};\ntry {\n  const textContent = geminiResponse.candidates[0].content.parts[0].text;\n  userStories = JSON.parse(textContent);\n  console.log('OK ' + (userStories.stories?.length || 0) + ' User Stories generees');\n  console.log('Total points:', userStories.metrics?.total_points || 0);\n} catch(e) {\n  console.error('ERROR Erreur parsing Gemini:', e.message);\n  userStories = {\n    epic: { title: 'Erreur de parsing', goal: 'N/A' },\n    stories: [],\n    metrics: { total_points: 0 }\n  };\n}\n\n// Preparer un item par story pour insertion en DB\nconst stories = userStories.stories || [];\nconst results = stories.map(story => ({\n  analysis_id: mergedData.analysis_id,\n  cadrage_id: mergedData.cadrage_id || null,\n  story_id: story.id,\n  title: story.title,\n  as_a: story.as_a,\n  i_want: story.i_want,\n  so_that: story.so_that,\n  priority: story.priority || 'SHOULD',\n  story_points: story.story_points || 0,\n  acceptance_criteria: JSON.stringify(story.acceptance_criteria || []),\n  test_scenarios: JSON.stringify(story.test_scenarios || []),\n  technical_notes: story.technical_notes || '',\n  dependencies: JSON.stringify(story.dependencies || [])\n}));\n\nconsole.log('Prepared ' + results.length + ' stories for DB insertion');\n\nreturn results.map(r => ({ json: r }));"
+        "jsCode": "// Parser la réponse Gemini\nconst geminiResponse = $input.first().json;\nconst contextData = $('Prepare Context').first().json;\n\nconsole.log('=== PARSING GEMINI RESPONSE ===');\n\nlet userStories = {};\ntry {\n  const textContent = geminiResponse.candidates[0].content.parts[0].text;\n  userStories = JSON.parse(textContent);\n  console.log('✓ ' + (userStories.stories?.length || 0) + ' User Stories générées');\n  console.log('Total points:', userStories.metrics?.total_points || 0);\n} catch(e) {\n  console.error('✗ Erreur parsing Gemini:', e.message);\n  userStories = {\n    epic: { title: 'Erreur de parsing', goal: 'N/A' },\n    stories: [],\n    metrics: { total_points: 0 }\n  };\n}\n\n// Préparer un item par story pour insertion\nconst stories = userStories.stories || [];\nconst results = stories.map(story => ({\n  project_id: contextData.project_id,\n  analysis_id: contextData.analysis_id,\n  story_id: story.id,\n  title: story.title,\n  as_a: story.as_a,\n  i_want: story.i_want,\n  so_that: story.so_that,\n  priority: story.priority || 'SHOULD',\n  story_points: story.story_points || 0,\n  acceptance_criteria: JSON.stringify(story.acceptance_criteria || []),\n  test_scenarios: JSON.stringify(story.test_scenarios || []),\n  technical_notes: story.technical_notes || '',\n  dependencies: JSON.stringify(story.dependencies || [])\n}));\n\nconsole.log('Prepared ' + results.length + ' stories for DB insertion');\n\nreturn results.map(r => ({ json: r }));"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [560, 240],
+      "position": [360, 240],
       "id": "prepare-us-data",
-      "name": "Prepare US Data (One Row Per Story)"
+      "name": "Parse & Prepare Stories"
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO maestro.user_stories (\n  analysis_id,\n  cadrage_id,\n  story_id,\n  title,\n  as_a,\n  i_want,\n  so_that,\n  priority,\n  story_points,\n  acceptance_criteria,\n  test_scenarios,\n  technical_notes,\n  dependencies,\n  status\n) VALUES (\n  $1::uuid,\n  $2::uuid,\n  $3,\n  $4,\n  $5,\n  $6,\n  $7,\n  $8,\n  $9,\n  $10::jsonb,\n  $11::jsonb,\n  $12,\n  $13::jsonb,\n  'PENDING'\n) RETURNING id, story_id, created_at;",
+        "query": "INSERT INTO maestro.user_stories (\n  project_id,\n  analysis_id,\n  story_id,\n  title,\n  as_a,\n  i_want,\n  so_that,\n  priority,\n  story_points,\n  acceptance_criteria,\n  test_scenarios,\n  technical_notes,\n  dependencies,\n  status\n) VALUES (\n  $1::uuid,\n  $2::uuid,\n  $3,\n  $4,\n  $5,\n  $6,\n  $7,\n  $8,\n  $9,\n  $10::jsonb,\n  $11::jsonb,\n  $12,\n  $13::jsonb,\n  'PENDING'\n) RETURNING id, story_id;",
         "options": {
-          "queryReplacement": "={{ [\n  $json.analysis_id,\n  $json.cadrage_id,\n  $json.story_id,\n  $json.title,\n  $json.as_a,\n  $json.i_want,\n  $json.so_that,\n  $json.priority,\n  $json.story_points,\n  $json.acceptance_criteria,\n  $json.test_scenarios,\n  $json.technical_notes,\n  $json.dependencies\n] }}"
+          "queryReplacement": "={{ [\n  $json.project_id,\n  $json.analysis_id,\n  $json.story_id,\n  $json.title,\n  $json.as_a,\n  $json.i_want,\n  $json.so_that,\n  $json.priority,\n  $json.story_points,\n  $json.acceptance_criteria,\n  $json.test_scenarios,\n  $json.technical_notes,\n  $json.dependencies\n] }}"
         }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [760, 240],
+      "position": [560, 240],
       "id": "save-us",
-      "name": "Save Each User Story (Loop)",
+      "name": "Save User Story",
       "credentials": {
         "postgres": {
           "id": "TxOzBdadKcgasYEn",
@@ -175,11 +138,11 @@
     },
     {
       "parameters": {
-        "jsCode": "// Aggreger les resultats de toutes les insertions\nconst insertions = $input.all();\nconst analysis_id = insertions[0]?.json?.analysis_id || 'unknown';\n\nconst storyIds = insertions.map(i => i.json.story_id);\nconst totalStories = insertions.length;\nconst firstCreatedAt = insertions[0]?.json?.created_at;\n\nconsole.log('Successfully inserted ' + totalStories + ' user stories');\n\nreturn [{\n  json: {\n    status: 'success',\n    agent: 'US',\n    message: totalStories + ' User Stories créées avec succès',\n    analysis_id: analysis_id,\n    total_stories: totalStories,\n    story_ids: storyIds,\n    created_at: firstCreatedAt\n  }\n}];"
+        "jsCode": "// Agréger les résultats\nconst insertions = $input.all();\nconst totalStories = insertions.length;\nconst contextData = $('Prepare Context').first().json;\n\nconsole.log('=== AGENT US COMPLETED ===');\nconsole.log('✓ Successfully inserted ' + totalStories + ' user stories');\n\nreturn [{\n  json: {\n    status: 'success',\n    agent: 'US',\n    message: totalStories + ' User Stories créées',\n    analysis_id: contextData.analysis_id,\n    project_id: contextData.project_id,\n    total_stories: totalStories,\n    story_ids: insertions.map(i => i.json.story_id)\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [960, 240],
+      "position": [760, 240],
       "id": "aggregate-results",
       "name": "Aggregate Results"
     },
@@ -200,7 +163,7 @@
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.4,
-      "position": [1160, 240],
+      "position": [960, 240],
       "id": "respond-us",
       "name": "Respond Success"
     }
@@ -210,30 +173,21 @@
       "main": [[{"node": "Keep Input Data", "type": "main", "index": 0}]]
     },
     "Keep Input Data": {
-      "main": [[{"node": "Has Cadrage?", "type": "main", "index": 0}]]
+      "main": [[{"node": "Fetch Project Stack", "type": "main", "index": 0}]]
     },
-    "Has Cadrage?": {
-      "main": [
-        [{"node": "Fetch Project Cadrage", "type": "main", "index": 0}],
-        [{"node": "No Cadrage", "type": "main", "index": 0}]
-      ]
+    "Fetch Project Stack": {
+      "main": [[{"node": "Prepare Context", "type": "main", "index": 0}]]
     },
-    "Fetch Project Cadrage": {
-      "main": [[{"node": "Merge Data for Gemini", "type": "main", "index": 0}]]
-    },
-    "No Cadrage": {
-      "main": [[{"node": "Merge Data for Gemini", "type": "main", "index": 0}]]
-    },
-    "Merge Data for Gemini": {
+    "Prepare Context": {
       "main": [[{"node": "Gemini US Generation", "type": "main", "index": 0}]]
     },
     "Gemini US Generation": {
-      "main": [[{"node": "Prepare US Data (One Row Per Story)", "type": "main", "index": 0}]]
+      "main": [[{"node": "Parse & Prepare Stories", "type": "main", "index": 0}]]
     },
-    "Prepare US Data (One Row Per Story)": {
-      "main": [[{"node": "Save Each User Story (Loop)", "type": "main", "index": 0}]]
+    "Parse & Prepare Stories": {
+      "main": [[{"node": "Save User Story", "type": "main", "index": 0}]]
     },
-    "Save Each User Story (Loop)": {
+    "Save User Story": {
       "main": [[{"node": "Aggregate Results", "type": "main", "index": 0}]]
     },
     "Aggregate Results": {

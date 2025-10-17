@@ -1,4 +1,5 @@
 {
+  "name": "Agent Orchestrator",
   "nodes": [
     {
       "parameters": {
@@ -88,89 +89,13 @@
     },
     {
       "parameters": {
-        "jsCode": "// Extraire l'analyse depuis PostgreSQL\nconst analysis = $input.first().json;\nconst inputData = $('Keep Input Data').first().json;\n\nconsole.log('=== ORCHESTRATOR STARTED ===');\nconsole.log('Analysis ID:', inputData.analysis_id);\nconsole.log('Complexity:', analysis.complexity);\nconsole.log('Agents needed:', analysis.agents_needed);\n\n// Parser agents_needed (JSONB)\nlet agentsNeeded = [];\ntry {\n  agentsNeeded = typeof analysis.agents_needed === 'string' \n    ? JSON.parse(analysis.agents_needed) \n    : analysis.agents_needed || [];\n} catch(e) {\n  console.error('Error parsing agents_needed:', e);\n  agentsNeeded = [];\n}\n\n// Déterminer quels agents lancer (dans l'ordre séquentiel)\nconst orchestrationPlan = {\n  analysis_id: inputData.analysis_id,\n  request_id: inputData.request_id,\n  project_id: inputData.project_id,\n  original_request: analysis.original_request,\n  complexity: analysis.complexity,\n  priority: analysis.priority,\n  agents_needed: agentsNeeded,\n  parallel_possible: Boolean(analysis.parallel_possible),\n  \n  // Flags pour routing SÉQUENTIEL\n  needs_cadrage: agentsNeeded.includes('CADRAGE'),\n  needs_us: agentsNeeded.includes('US'),\n  needs_dev: agentsNeeded.includes('DEV'),\n  needs_test: agentsNeeded.includes('TEST'),\n  needs_deploy: agentsNeeded.includes('DEPLOY'),\n  \n  // Stockage des IDs pour chaînage\n  cadrage_id: null,\n  us_id: null,\n  \n  timestamp: new Date().toISOString()\n};\n\nconsole.log('Orchestration plan:', orchestrationPlan);\n\nreturn [{ json: orchestrationPlan }];"
+        "jsCode": "// Extraire l'analyse depuis PostgreSQL\nconst analysis = $input.first().json;\nconst inputData = $('Keep Input Data').first().json;\n\nconsole.log('=== ORCHESTRATOR v2 STARTED (sans CADRAGE) ===');\nconsole.log('Analysis ID:', inputData.analysis_id);\nconsole.log('Complexity:', analysis.complexity);\nconsole.log('Agents needed:', analysis.agents_needed);\n\n// Parser agents_needed (JSONB)\nlet agentsNeeded = [];\ntry {\n  agentsNeeded = typeof analysis.agents_needed === 'string' \n    ? JSON.parse(analysis.agents_needed) \n    : analysis.agents_needed || [];\n} catch(e) {\n  console.error('Error parsing agents_needed:', e);\n  agentsNeeded = [];\n}\n\n// Filtrer CADRAGE s'il est présent (anciennes analyses)\nif (agentsNeeded.includes('CADRAGE')) {\n  console.warn('⚠️ CADRAGE détecté dans agents_needed - suppression (agent déprécié)');\n  agentsNeeded = agentsNeeded.filter(a => a !== 'CADRAGE');\n}\n\n// Déterminer quels agents lancer (workflow simplifié : PM → US → DEV → TEST → DEPLOY)\nconst orchestrationPlan = {\n  analysis_id: inputData.analysis_id,\n  request_id: inputData.request_id,\n  project_id: inputData.project_id,\n  original_request: analysis.original_request,\n  complexity: analysis.complexity,\n  priority: analysis.priority,\n  agents_needed: agentsNeeded,\n  parallel_possible: Boolean(analysis.parallel_possible),\n  \n  // Flags pour routing SÉQUENTIEL (CADRAGE supprimé 2025-10-17)\n  needs_us: agentsNeeded.includes('US'),\n  needs_dev: agentsNeeded.includes('DEV'),\n  needs_test: agentsNeeded.includes('TEST'),\n  needs_deploy: agentsNeeded.includes('DEPLOY'),\n  \n  // Stockage des IDs pour chaînage\n  us_id: null,\n  dev_id: null,\n  \n  timestamp: new Date().toISOString()\n};\n\nconsole.log('Orchestration plan:', orchestrationPlan);\nconsole.log('Workflow: PM → US → DEV → TEST → DEPLOY');\n\nreturn [{ json: orchestrationPlan }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [-160, 240],
       "id": "prepare-orchestration",
       "name": "Prepare Orchestration Plan"
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "boolean": [
-            {
-              "value1": "={{ $json.needs_cadrage }}",
-              "value2": true
-            }
-          ]
-        },
-        "options": {}
-      },
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [40, 240],
-      "id": "check-cadrage",
-      "name": "Need CADRAGE?"
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://n8n.maestro.ara-solutions.cloud/webhook/cadrage",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"analysis_id\": \"{{ $json.analysis_id }}\",\n  \"request_id\": \"{{ $json.request_id }}\",\n  \"request_text\": \"{{ $json.original_request }}\",\n  \"complexity\": \"{{ $json.complexity }}\",\n  \"priority\": \"{{ $json.priority }}\",\n  \"project_id\": \"{{ $json.project_id }}\"\n}",
-        "options": {
-          "timeout": 60000,
-          "response": {
-            "response": {
-              "neverError": true
-            }
-          }
-        }
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [240, 120],
-      "id": "call-cadrage",
-      "name": "1. CADRAGE Agent"
-    },
-    {
-      "parameters": {
-        "assignments": {
-          "assignments": [
-            {
-              "id": "field1",
-              "name": "workflow_status",
-              "value": "No CADRAGE needed",
-              "type": "string"
-            },
-            {
-              "id": "field2",
-              "name": "cadrage_id",
-              "value": null,
-              "type": "string"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [240, 360],
-      "id": "skip-cadrage",
-      "name": "Skip CADRAGE"
-    },
-    {
-      "parameters": {
-        "jsCode": "// Récupérer le plan d'orchestration initial\nconst plan = $('Prepare Orchestration Plan').first().json;\nlet updatedPlan = { ...plan };\n\n// Si CADRAGE a été exécuté, récupérer l'ID\nif ($('1. CADRAGE Agent').all().length > 0) {\n  const cadrageResponse = $('1. CADRAGE Agent').first().json;\n  updatedPlan.cadrage_id = cadrageResponse.cadrage_id;\n  console.log('✅ CADRAGE completed, ID:', updatedPlan.cadrage_id);\n}\n\nreturn [{ json: updatedPlan }];"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [440, 240],
-      "id": "update-plan-after-cadrage",
-      "name": "Update Plan After CADRAGE"
     },
     {
       "parameters": {
@@ -186,31 +111,26 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [640, 240],
-      "id": "check-us",
+      "position": [40, 240],
+      "id": "need-us",
       "name": "Need US?"
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "https://n8n.maestro.ara-solutions.cloud/webhook/user-stories",
+        "url": "http://n8n:5678/webhook/user-stories",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"analysis_id\": \"{{ $json.analysis_id }}\",\n  \"request_id\": \"{{ $json.request_id }}\",\n  \"cadrage_id\": \"{{ $json.cadrage_id }}\",\n  \"request_text\": \"{{ $json.original_request }}\",\n  \"complexity\": \"{{ $json.complexity }}\"\n}",
+        "jsonBody": "={{ {\n  \"analysis_id\": $json.analysis_id,\n  \"request_id\": $json.request_id,\n  \"project_id\": $json.project_id,\n  \"request_text\": $json.original_request,\n  \"complexity\": $json.complexity\n} }}",
         "options": {
-          "timeout": 90000,
-          "response": {
-            "response": {
-              "neverError": true
-            }
-          }
+          "timeout": 120000
         }
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [840, 120],
-      "id": "call-us",
-      "name": "2. US Agent"
+      "position": [240, 140],
+      "id": "call-us-agent",
+      "name": "Call US Agent"
     },
     {
       "parameters": {
@@ -218,8 +138,8 @@
           "assignments": [
             {
               "id": "field1",
-              "name": "workflow_status",
-              "value": "No US needed",
+              "name": "message",
+              "value": "No US generation needed",
               "type": "string"
             }
           ]
@@ -228,17 +148,17 @@
       },
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [840, 360],
+      "position": [240, 340],
       "id": "skip-us",
       "name": "Skip US"
     },
     {
       "parameters": {
-        "jsCode": "// Récupérer le plan mis à jour\nconst plan = $('Update Plan After CADRAGE').first().json;\nlet updatedPlan = { ...plan };\n\n// Si US a été exécuté, récupérer l'ID\nif ($('2. US Agent').all().length > 0) {\n  const usResponse = $('2. US Agent').first().json;\n  updatedPlan.us_id = usResponse.us_id;\n  console.log('✅ US completed, ID:', updatedPlan.us_id);\n}\n\nreturn [{ json: updatedPlan }];"
+        "jsCode": "// Récupérer le plan d'orchestration initial\nconst plan = $('Prepare Orchestration Plan').first().json;\nlet updatedPlan = { ...plan };\n\n// Si US a été exécuté, récupérer les infos\nif ($('Call US Agent').all().length > 0) {\n  const usResponse = $('Call US Agent').first().json;\n  updatedPlan.us_count = usResponse.total_stories || 0;\n  console.log('✅ US completed, stories created:', updatedPlan.us_count);\n} else {\n  console.log('⏭️ US skipped');\n}\n\nreturn [{ json: updatedPlan }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1040, 240],
+      "position": [440, 240],
       "id": "update-plan-after-us",
       "name": "Update Plan After US"
     },
@@ -256,8 +176,8 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1240, 240],
-      "id": "check-dev",
+      "position": [640, 240],
+      "id": "need-dev",
       "name": "Need DEV?"
     },
     {
@@ -266,8 +186,20 @@
           "assignments": [
             {
               "id": "field1",
-              "name": "dev_status",
-              "value": "DEV agent would run here (not implemented yet)",
+              "name": "agent",
+              "value": "DEV",
+              "type": "string"
+            },
+            {
+              "id": "field2",
+              "name": "status",
+              "value": "placeholder",
+              "type": "string"
+            },
+            {
+              "id": "field3",
+              "name": "message",
+              "value": "Agent DEV pas encore implémenté avec Gitea",
               "type": "string"
             }
           ]
@@ -276,9 +208,9 @@
       },
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [1440, 120],
-      "id": "placeholder-dev",
-      "name": "3. DEV Agent (TODO)"
+      "position": [840, 140],
+      "id": "call-dev-placeholder",
+      "name": "DEV Agent (TODO)"
     },
     {
       "parameters": {
@@ -286,8 +218,8 @@
           "assignments": [
             {
               "id": "field1",
-              "name": "workflow_status",
-              "value": "No DEV needed",
+              "name": "message",
+              "value": "No DEV generation needed",
               "type": "string"
             }
           ]
@@ -296,16 +228,26 @@
       },
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [1440, 360],
+      "position": [840, 340],
       "id": "skip-dev",
       "name": "Skip DEV"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Récupérer le plan mis à jour\nconst plan = $('Update Plan After US').first().json;\nlet updatedPlan = { ...plan };\n\n// Si DEV a été exécuté\nif ($('DEV Agent (TODO)').all().length > 0) {\n  console.log('⏳ DEV placeholder executed');\n} else {\n  console.log('⏭️ DEV skipped');\n}\n\nreturn [{ json: updatedPlan }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1040, 240],
+      "id": "update-plan-after-dev",
+      "name": "Update Plan After DEV"
     },
     {
       "parameters": {
         "conditions": {
           "boolean": [
             {
-              "value1": "={{ $('Update Plan After US').item.json.needs_test }}",
+              "value1": "={{ $json.needs_test }}",
               "value2": true
             }
           ]
@@ -314,8 +256,8 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1640, 240],
-      "id": "check-test",
+      "position": [1240, 240],
+      "id": "need-test",
       "name": "Need TEST?"
     },
     {
@@ -324,8 +266,20 @@
           "assignments": [
             {
               "id": "field1",
-              "name": "test_status",
-              "value": "TEST agent would run here (not implemented yet)",
+              "name": "agent",
+              "value": "TEST",
+              "type": "string"
+            },
+            {
+              "id": "field2",
+              "name": "status",
+              "value": "placeholder",
+              "type": "string"
+            },
+            {
+              "id": "field3",
+              "name": "message",
+              "value": "Agent TEST pas encore implémenté",
               "type": "string"
             }
           ]
@@ -334,9 +288,9 @@
       },
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [1840, 120],
-      "id": "placeholder-test",
-      "name": "4. TEST Agent (TODO)"
+      "position": [1440, 140],
+      "id": "call-test-placeholder",
+      "name": "TEST Agent (TODO)"
     },
     {
       "parameters": {
@@ -344,7 +298,7 @@
           "assignments": [
             {
               "id": "field1",
-              "name": "workflow_status",
+              "name": "message",
               "value": "No TEST needed",
               "type": "string"
             }
@@ -354,33 +308,33 @@
       },
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [1840, 360],
+      "position": [1440, 340],
       "id": "skip-test",
       "name": "Skip TEST"
     },
     {
       "parameters": {
-        "jsCode": "// Compiler tous les résultats de l'orchestration\nconst orchestrationPlan = $('Update Plan After US').first().json;\n\nconst results = {\n  request_id: orchestrationPlan.request_id,\n  analysis_id: orchestrationPlan.analysis_id,\n  timestamp: new Date().toISOString(),\n  complexity: orchestrationPlan.complexity,\n  agents_executed: [],\n  cadrage_id: null,\n  us_id: null\n};\n\n// Vérifier si CADRAGE a été exécuté\nif ($('1. CADRAGE Agent').all().length > 0) {\n  const cadrageResult = $('1. CADRAGE Agent').first().json;\n  results.cadrage_id = cadrageResult.cadrage_id;\n  results.agents_executed.push('CADRAGE');\n  console.log('✅ CADRAGE completed');\n}\n\n// Vérifier si US a été exécuté\nif ($('2. US Agent').all().length > 0) {\n  const usResult = $('2. US Agent').first().json;\n  results.us_id = usResult.us_id;\n  results.agents_executed.push('US');\n  console.log('✅ US completed');\n}\n\n// DEV\nif ($('3. DEV Agent (TODO)').all().length > 0) {\n  results.agents_executed.push('DEV (placeholder)');\n}\n\n// TEST\nif ($('4. TEST Agent (TODO)').all().length > 0) {\n  results.agents_executed.push('TEST (placeholder)');\n}\n\nresults.orchestration_status = 'COMPLETED';\nresults.summary = `Orchestration séquentielle complétée avec ${results.agents_executed.length} agent(s): ${results.agents_executed.join(' → ')}`;\n\nconsole.log('=== ORCHESTRATION COMPLETE ===');\nconsole.log('Agents executed:', results.agents_executed.join(' → '));\n\nreturn [{ json: results }];"
+        "jsCode": "// Compiler tous les résultats de l'orchestration\nconst orchestrationPlan = $('Update Plan After DEV').first().json;\n\nconst results = {\n  request_id: orchestrationPlan.request_id,\n  analysis_id: orchestrationPlan.analysis_id,\n  project_id: orchestrationPlan.project_id,\n  timestamp: new Date().toISOString(),\n  complexity: orchestrationPlan.complexity,\n  agents_executed: [],\n  us_count: orchestrationPlan.us_count || 0\n};\n\n// Vérifier si US a été exécuté\nif ($('Call US Agent').all().length > 0) {\n  results.agents_executed.push('US');\n  console.log('✅ US completed');\n}\n\n// DEV\nif ($('DEV Agent (TODO)').all().length > 0) {\n  results.agents_executed.push('DEV (placeholder)');\n}\n\n// TEST\nif ($('TEST Agent (TODO)').all().length > 0) {\n  results.agents_executed.push('TEST (placeholder)');\n}\n\nresults.orchestration_status = 'COMPLETED';\nresults.summary = `Orchestration complétée avec ${results.agents_executed.length} agent(s): ${results.agents_executed.join(' → ')}`;\n\nif (results.us_count > 0) {\n  results.summary += ` | ${results.us_count} User Stories créées`;\n}\n\nconsole.log('=== ORCHESTRATION COMPLETE (sans CADRAGE) ===');\nconsole.log('Agents executed:', results.agents_executed.join(' → '));\nconsole.log('User Stories:', results.us_count);\n\nreturn [{ json: results }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2040, 240],
-      "id": "merge-results",
-      "name": "Merge Results"
+      "position": [1640, 240],
+      "id": "compile-results",
+      "name": "Compile Results"
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE maestro.requests SET status = 'COMPLETED', updated_at = NOW() WHERE id = $1::uuid",
+        "query": "UPDATE maestro.requests SET status = 'AGENTS_RUNNING', updated_at = NOW() WHERE id = $1::uuid",
         "options": {
-          "queryReplacement": "={{ [$('Prepare Orchestration Plan').item.json.request_id] }}"
+          "queryReplacement": "={{ [$('Compile Results').item.json.request_id] }}"
         }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [2240, 240],
-      "id": "update-status-completed",
-      "name": "Update Status: COMPLETED",
+      "position": [1840, 240],
+      "id": "update-status-running",
+      "name": "Update Status: RUNNING",
       "credentials": {
         "postgres": {
           "id": "TxOzBdadKcgasYEn",
@@ -391,7 +345,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify($('Merge Results').item.json, null, 2) }}",
+        "responseBody": "={{ JSON.stringify($('Compile Results').item.json, null, 2) }}",
         "options": {
           "responseHeaders": {
             "entries": [
@@ -405,9 +359,9 @@
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.4,
-      "position": [2440, 240],
-      "id": "final-response",
-      "name": "Final Response"
+      "position": [2040, 240],
+      "id": "respond-webhook",
+      "name": "Respond to Webhook"
     }
   ],
   "connections": {
@@ -424,30 +378,15 @@
       "main": [[{"node": "Prepare Orchestration Plan", "type": "main", "index": 0}]]
     },
     "Prepare Orchestration Plan": {
-      "main": [[{"node": "Need CADRAGE?", "type": "main", "index": 0}]]
-    },
-    "Need CADRAGE?": {
-      "main": [
-        [{"node": "1. CADRAGE Agent", "type": "main", "index": 0}],
-        [{"node": "Skip CADRAGE", "type": "main", "index": 0}]
-      ]
-    },
-    "1. CADRAGE Agent": {
-      "main": [[{"node": "Update Plan After CADRAGE", "type": "main", "index": 0}]]
-    },
-    "Skip CADRAGE": {
-      "main": [[{"node": "Update Plan After CADRAGE", "type": "main", "index": 0}]]
-    },
-    "Update Plan After CADRAGE": {
       "main": [[{"node": "Need US?", "type": "main", "index": 0}]]
     },
     "Need US?": {
       "main": [
-        [{"node": "2. US Agent", "type": "main", "index": 0}],
+        [{"node": "Call US Agent", "type": "main", "index": 0}],
         [{"node": "Skip US", "type": "main", "index": 0}]
       ]
     },
-    "2. US Agent": {
+    "Call US Agent": {
       "main": [[{"node": "Update Plan After US", "type": "main", "index": 0}]]
     },
     "Skip US": {
@@ -458,33 +397,36 @@
     },
     "Need DEV?": {
       "main": [
-        [{"node": "3. DEV Agent (TODO)", "type": "main", "index": 0}],
+        [{"node": "DEV Agent (TODO)", "type": "main", "index": 0}],
         [{"node": "Skip DEV", "type": "main", "index": 0}]
       ]
     },
-    "3. DEV Agent (TODO)": {
-      "main": [[{"node": "Need TEST?", "type": "main", "index": 0}]]
+    "DEV Agent (TODO)": {
+      "main": [[{"node": "Update Plan After DEV", "type": "main", "index": 0}]]
     },
     "Skip DEV": {
+      "main": [[{"node": "Update Plan After DEV", "type": "main", "index": 0}]]
+    },
+    "Update Plan After DEV": {
       "main": [[{"node": "Need TEST?", "type": "main", "index": 0}]]
     },
     "Need TEST?": {
       "main": [
-        [{"node": "4. TEST Agent (TODO)", "type": "main", "index": 0}],
+        [{"node": "TEST Agent (TODO)", "type": "main", "index": 0}],
         [{"node": "Skip TEST", "type": "main", "index": 0}]
       ]
     },
-    "4. TEST Agent (TODO)": {
-      "main": [[{"node": "Merge Results", "type": "main", "index": 0}]]
+    "TEST Agent (TODO)": {
+      "main": [[{"node": "Compile Results", "type": "main", "index": 0}]]
     },
     "Skip TEST": {
-      "main": [[{"node": "Merge Results", "type": "main", "index": 0}]]
+      "main": [[{"node": "Compile Results", "type": "main", "index": 0}]]
     },
-    "Merge Results": {
-      "main": [[{"node": "Update Status: COMPLETED", "type": "main", "index": 0}]]
+    "Compile Results": {
+      "main": [[{"node": "Update Status: RUNNING", "type": "main", "index": 0}]]
     },
-    "Update Status: COMPLETED": {
-      "main": [[{"node": "Final Response", "type": "main", "index": 0}]]
+    "Update Status: RUNNING": {
+      "main": [[{"node": "Respond to Webhook", "type": "main", "index": 0}]]
     }
   },
   "pinData": {},

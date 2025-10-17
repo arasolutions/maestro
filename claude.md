@@ -1,7 +1,9 @@
 # MAESTRO Dashboard - Symfony 7.3 Application
 
 ## Project Context
-You are developing a Symfony 7.3 dashboard for MAESTRO, an AI-powered multi-agent orchestration platform. The system uses n8n workflows to coordinate AI agents (PM, Cadrage, US, Dev, Test, Deploy) that analyze and process development requests.
+You are developing a Symfony 7.3 dashboard for MAESTRO, an AI-powered multi-agent orchestration platform. The system uses n8n workflows to coordinate AI agents (PM, US, Dev, Test, Deploy) that analyze and process development requests.
+
+**Note**: L'Agent Cadrage a été supprimé le 2025-10-17 pour simplifier le workflow et éliminer l'ambiguïté sur le scope des User Stories.
 
 ## Technical Stack
 - PHP 8.2
@@ -31,24 +33,11 @@ maestro.analyses (
   created_at TIMESTAMP
 )
 
--- Cadrages table (architectural analysis)
-maestro.cadrages (
-  id UUID PRIMARY KEY,
-  analysis_id UUID,
-  perimetre JSONB,
-  contraintes JSONB,
-  architecture JSONB,
-  swot JSONB,
-  estimation JSONB,
-  full_response JSONB,
-  created_at TIMESTAMP
-)
-
 -- User Stories table
 maestro.user_stories (
   id UUID PRIMARY KEY,
+  project_id UUID,
   analysis_id UUID,
-  cadrage_id UUID,
   stories JSONB,
   acceptance_criteria JSONB,
   story_points INTEGER,

@@ -121,11 +121,9 @@ class AnalysisController extends AbstractController
             throw $this->createNotFoundException('Analyse introuvable');
         }
 
-        // Récupérer le cadrage proposal associé
-        $cadrage = $this->connection->fetchAssociative(
-            'SELECT * FROM maestro.cadrage_proposals WHERE analysis_id = :analysisId',
-            ['analysisId' => $id]
-        );
+        // Note: Le système de cadrage a été supprimé le 2025-10-17
+        // Voir MIGRATION_COMPLETE.md pour plus de détails
+        $cadrage = null;
 
         // Récupérer TOUTES les user stories associées (nouvelle structure: une ligne par story)
         $userStoriesRaw = $this->connection->fetchAllAssociative(
@@ -156,13 +154,7 @@ class AnalysisController extends AbstractController
             $analysis['full_response'] = json_decode($analysis['full_response'], true);
         }
 
-        if ($cadrage) {
-            $cadrage['perimetre'] = $cadrage['perimetre'] ? json_decode($cadrage['perimetre'], true) : null;
-            $cadrage['contraintes'] = $cadrage['contraintes'] ? json_decode($cadrage['contraintes'], true) : null;
-            $cadrage['architecture'] = $cadrage['architecture'] ? json_decode($cadrage['architecture'], true) : null;
-            $cadrage['swot'] = $cadrage['swot'] ? json_decode($cadrage['swot'], true) : null;
-            $cadrage['estimation'] = $cadrage['estimation'] ? json_decode($cadrage['estimation'], true) : null;
-        }
+        // Cadrage supprimé - ligne vide pour compatibilité
 
         // Récupérer la request associée pour vérifier le statut
         $request = null;
@@ -189,15 +181,7 @@ class AnalysisController extends AbstractController
                 $projectCadrage = json_decode($project['project_cadrage'], true);
             }
 
-            // Get Project entity and CadrageProposal entity for diff calculation
-            if ($cadrage && $cadrage['status'] === 'PENDING') {
-                $projectEntity = $this->entityManager->getRepository(Project::class)->find(Uuid::fromString($analysis['project_id']));
-                $cadrageProposalEntity = $this->entityManager->getRepository(CadrageProposal::class)->find(Uuid::fromString($cadrage['id']));
-
-                if ($projectEntity && $cadrageProposalEntity) {
-                    $diff = $this->cadrageService->compareCadrages($projectEntity, $cadrageProposalEntity);
-                }
-            }
+            // Calcul de diff cadrage supprimé (système de cadrage déprécié)
         }
 
         return $this->render('analysis/detail.html.twig', [
@@ -382,11 +366,7 @@ class AnalysisController extends AbstractController
         }
 
         try {
-            // Delete related cadrage proposals
-            $this->connection->executeStatement(
-                'DELETE FROM maestro.cadrage_proposals WHERE analysis_id = :analysisId',
-                ['analysisId' => $id]
-            );
+            // Note: cadrage_proposals table supprimée le 2025-10-17
 
             // Delete related user stories
             $this->connection->executeStatement(

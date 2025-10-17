@@ -2,7 +2,14 @@
   "permissions": {
     "allow": [
       "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console doctrine:query:sql:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(if [ -f \"n8n_data/Agent Cadrage.json\" ])",
+      "Bash(then rm \"n8n_data/Agent Cadrage.json\")",
+      "Bash(else echo \"Fichier déjà supprimé\")",
+      "Bash(fi)",
+      "Bash(if [ -f \"n8n_data/Agent US Generator.json\" ])",
+      "Bash(then mv \"n8n_data/Agent US Generator.json\" \"n8n_data/Agent US Generator OLD.json\")",
+      "Bash(else echo \"Fichier déjà déplacé\")"
     ],
     "deny": [],
     "ask": [],
