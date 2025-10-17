@@ -41,30 +41,9 @@
                         <small class="form-text text-muted">Décrivez les technologies, frameworks, versions, etc. utilisés dans ce projet</small>
                     </div>
 
-                    <hr class="my-4">
-                    <h6 class="text-muted mb-3">🔗 Configuration Git (optionnel)</h6>
-
-                    <div class="mb-3">
-                        <label for="git_url" class="form-label">URL du Repository Git</label>
-                        <input type="url" class="form-control" id="git_url" name="git_url"
-                               value="{{ git_url|default('') }}"
-                               placeholder="https://github.com/username/repository.git">
-                        <small class="form-text text-muted">L'URL du dépôt Git pour analyser le code existant</small>
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="git_branch" class="form-label">Branche</label>
-                            <input type="text" class="form-control" id="git_branch" name="git_branch"
-                                   value="{{ git_branch|default('main') }}"
-                                   placeholder="main">
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="git_token" class="form-label">Access Token</label>
-                            <input type="password" class="form-control" id="git_token" name="git_token"
-                                   placeholder="ghp_xxxxxxxxxxxx (optionnel)">
-                            <small class="form-text text-muted">Token pour les repos privés</small>
-                        </div>
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i>
+                        <strong>Prochaines étapes :</strong> Après création du projet, vous pourrez initialiser automatiquement un dépôt Gitea et configurer les environnements de déploiement Coolify.
                     </div>
 
                     <div class="d-flex justify-content-between">

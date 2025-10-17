@@ -109,7 +109,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={\n  \"status\": \"success\", \n  \"message\": \"Analyse sauvegardée avec ID {{ $json.id }}\",\n  \"request\": \"{{ $('Keep Request').item.json.request_original }}\"\n}",
+        "responseBody": "={{ JSON.stringify({\n  status: 'success',\n  agent: 'ANALYZER',\n  message: 'Analyse sauvegardée avec ID ' + $json.id,\n  analysis_id: $json.id,\n  created_at: $json.created_at\n}, null, 2) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.respondToWebhook",

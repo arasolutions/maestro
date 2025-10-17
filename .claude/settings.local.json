@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console doctrine:query:sql:*)"
+      "Bash(/c/wamp64-v3/bin/php/php8.2.26/php.exe /c/wamp64/www/maestro/symfony-app/bin/console doctrine:query:sql:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": [],

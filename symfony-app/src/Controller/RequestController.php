@@ -182,6 +182,12 @@ class RequestController extends AbstractController
                     ['slug' => $currentProjectSlug]
                 );
 
+                // Vérifier que le projet existe
+                if (!$projectId) {
+                    $this->addFlash('error', 'Projet introuvable. Veuillez sélectionner un projet existant.');
+                    return $this->redirectToRoute('app_home');
+                }
+
                 // S'assurer que current_project_id est en session
                 if (!$request->getSession()->get('current_project_id')) {
                     $request->getSession()->set('current_project_id', $projectId);
@@ -305,5 +311,94 @@ class RequestController extends AbstractController
             $this->addFlash('error', 'Erreur: ' . $e->getMessage());
             return $this->redirectToRoute('app_home');
         }
+    }
+
+    /**
+     * Relancer l'analyse d'une requête échouée
+     */
+    #[Route('/request/{id}/retry', name: 'app_request_retry', methods: ['POST'])]
+    public function retry(string $id, Request $request): Response
+    {
+        // Vérifier le token CSRF
+        $token = $request->request->get('_token');
+        if (!$this->isCsrfTokenValid('retry_request_' . $id, $token)) {
+            $this->addFlash('error', 'Token CSRF invalide');
+            return $this->redirectToRoute('app_request_detail', ['id' => $id]);
+        }
+
+        try {
+            // Récupérer la requête
+            $requestData = $this->connection->fetchAssociative(
+                'SELECT r.*, p.slug as project_slug, p.name as project_name
+                 FROM maestro.requests r
+                 LEFT JOIN maestro.projects p ON r.project_id = p.id
+                 WHERE r.id = :id',
+                ['id' => $id]
+            );
+
+            if (!$requestData) {
+                throw $this->createNotFoundException('Requête introuvable');
+            }
+
+            // Vérifier que le statut est FAILED
+            if ($requestData['status'] !== 'FAILED') {
+                $this->addFlash('warning', 'Seules les requêtes échouées peuvent être relancées');
+                return $this->redirectToRoute('app_request_detail', ['id' => $id]);
+            }
+
+            // Mettre à jour le statut à PROCESSING
+            $this->connection->update('maestro.requests',
+                [
+                    'status' => 'PROCESSING',
+                    'error_message' => null,
+                    'updated_at' => new \DateTime()
+                ],
+                ['id' => $id],
+                ['id' => 'uuid', 'updated_at' => 'datetime']
+            );
+
+            // Préparer les métadonnées
+            $metadata = [
+                'request_id' => $id,
+                'project_id' => $requestData['project_id'],
+                'project_slug' => $requestData['project_slug'],
+                'project_name' => $requestData['project_name'],
+            ];
+
+            // Appeler l'agent Analyzer via n8n
+            try {
+                $response = $this->n8nService->triggerOrchestration($requestData['request_text'], $metadata);
+
+                // Enregistrer le webhook_execution_id si retourné
+                if (isset($response['execution_id'])) {
+                    $this->connection->update('maestro.requests',
+                        ['webhook_execution_id' => $response['execution_id']],
+                        ['id' => $id],
+                        ['id' => 'uuid']
+                    );
+                }
+
+                $this->addFlash('success', 'L\'analyse a été relancée avec succès');
+
+            } catch (\Exception $webhookError) {
+                // Si l'appel à n8n échoue, marquer comme FAILED
+                $this->connection->update('maestro.requests',
+                    [
+                        'status' => 'FAILED',
+                        'error_message' => $webhookError->getMessage(),
+                        'updated_at' => new \DateTime()
+                    ],
+                    ['id' => $id],
+                    ['id' => 'uuid', 'updated_at' => 'datetime']
+                );
+
+                $this->addFlash('error', 'Échec de la relance: ' . $webhookError->getMessage());
+            }
+
+        } catch (\Exception $e) {
+            $this->addFlash('error', 'Erreur lors de la relance: ' . $e->getMessage());
+        }
+
+        return $this->redirectToRoute('app_request_detail', ['id' => $id]);
     }
 }

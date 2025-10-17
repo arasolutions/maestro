@@ -14,6 +14,9 @@ CREATE TABLE IF NOT EXISTS maestro.projects (
     description TEXT,
     config JSONB DEFAULT '{}',
     gitea_repo_url TEXT,
+    gitea_repo_id INTEGER,
+    gitea_repo_name VARCHAR(255),
+    gitea_webhook_secret VARCHAR(255),
     project_cadrage JSONB,
     project_cadrage_version INTEGER DEFAULT 1,
     project_cadrage_updated_at TIMESTAMP,
@@ -22,15 +25,15 @@ CREATE TABLE IF NOT EXISTS maestro.projects (
 );
 
 -- Table des requêtes (demandes utilisateur)
+-- Note: Les métadonnées (type, priority, complexity) sont calculées par l'Agent Analyzer et stockées dans la table analyses
 CREATE TABLE IF NOT EXISTS maestro.requests (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID REFERENCES maestro.projects(id) ON DELETE CASCADE,
-    title VARCHAR(255) NOT NULL,
-    description TEXT NOT NULL,
-    request_type VARCHAR(50) DEFAULT 'FEATURE',
-    priority VARCHAR(20) DEFAULT 'MEDIUM',
+    request_text TEXT NOT NULL,
     status VARCHAR(20) DEFAULT 'PENDING',
     n8n_execution_id VARCHAR(255),
+    webhook_execution_id VARCHAR(255),
+    error_message TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -47,6 +50,7 @@ CREATE TABLE IF NOT EXISTS maestro.analyses (
     confidence DECIMAL(3,2),
     agents_needed JSONB DEFAULT '[]',
     estimated_hours INTEGER,
+    parallel_possible BOOLEAN DEFAULT false,
     next_steps JSONB DEFAULT '[]',
     risks JSONB DEFAULT '[]',
     full_response JSONB,
@@ -59,6 +63,22 @@ CREATE TABLE IF NOT EXISTS maestro.cadrages (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID REFERENCES maestro.projects(id) ON DELETE CASCADE,
     analysis_id UUID REFERENCES maestro.analyses(id) ON DELETE CASCADE,
+    perimetre JSONB,
+    contraintes JSONB,
+    architecture JSONB,
+    swot JSONB,
+    estimation JSONB,
+    full_response JSONB,
+    status VARCHAR(20) DEFAULT 'PENDING',
+    applied_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Table des propositions de cadrage (Cadrage Agent)
+CREATE TABLE IF NOT EXISTS maestro.cadrage_proposals (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    analysis_id UUID REFERENCES maestro.analyses(id) ON DELETE CASCADE,
+    project_id UUID REFERENCES maestro.projects(id) ON DELETE CASCADE,
     perimetre JSONB,
     contraintes JSONB,
     architecture JSONB,
@@ -84,6 +104,18 @@ CREATE TABLE IF NOT EXISTS maestro.user_stories (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Table du code généré (Dev Agent)
+CREATE TABLE IF NOT EXISTS maestro.generated_code (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_story_id UUID REFERENCES maestro.user_stories(id) ON DELETE CASCADE,
+    language VARCHAR(50),
+    framework VARCHAR(100),
+    code_files JSONB,
+    tests JSONB,
+    documentation TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Table des branches Git
 CREATE TABLE IF NOT EXISTS maestro.git_branches (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -98,16 +130,21 @@ CREATE TABLE IF NOT EXISTS maestro.git_branches (
     UNIQUE(project_id, branch_name)
 );
 
--- Table des scénarios de test
+-- Table des scénarios de test (Test Agent)
 CREATE TABLE IF NOT EXISTS maestro.test_scenarios (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID REFERENCES maestro.projects(id) ON DELETE CASCADE,
     user_story_id UUID REFERENCES maestro.user_stories(id) ON DELETE CASCADE,
-    scenario_name VARCHAR(255) NOT NULL,
+    scenario_name VARCHAR(255),
     test_type VARCHAR(50) DEFAULT 'functional',
+    scenarios JSONB,
+    test_code JSONB,
     test_data JSONB,
     expected_results JSONB,
     status VARCHAR(20) DEFAULT 'PENDING',
+    coverage INTEGER,
+    passed_count INTEGER DEFAULT 0,
+    failed_count INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

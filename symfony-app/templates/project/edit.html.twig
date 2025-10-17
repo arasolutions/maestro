@@ -43,13 +43,13 @@
                 <hr class="my-4">
                 <h6 class="text-muted mb-3">🔗 Dépôt Gitea</h6>
 
-                {% if project.gitea_repo_id %}
+                {% if project.gitea_repo_url %}
                     <div class="card border-0 shadow-sm bg-light">
                         <div class="card-body">
                             <div class="d-flex justify-content-between align-items-center mb-3">
                                 <div>
                                     <h6 class="mb-1 text-success">✓ Dépôt Gitea Configuré</h6>
-                                    <small class="text-muted">{{ project.gitea_repo_name }}</small>
+                                    <small class="text-muted">{{ project.slug }}</small>
                                 </div>
                                 <a href="{{ project.gitea_repo_url }}" target="_blank" class="btn btn-sm btn-outline-primary">
                                     Ouvrir dans Gitea →
@@ -148,7 +148,7 @@
                                     <h6 class="mb-1 text-warning">⚠️ Coolify Non Configuré</h6>
                                     <small class="text-muted">Créez automatiquement les environnements de déploiement</small>
                                 </div>
-                                {% if project.gitea_repo_id %}
+                                {% if project.gitea_repo_url %}
                                 <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#coolifyInitModal">
                                     🚀 Initialiser Coolify
                                 </button>

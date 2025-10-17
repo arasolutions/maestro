@@ -58,8 +58,18 @@
                                     <i class="bi bi-x-circle"></i> Échec
                                 </span>
                                 {% if request.error_message %}
-                                    <div class="alert alert-danger mt-2 mb-0">
-                                        <strong>Erreur:</strong> {{ request.error_message }}
+                                    <div class="alert alert-danger mt-3 mb-0">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div>
+                                                <strong>Erreur:</strong> {{ request.error_message }}
+                                            </div>
+                                            <form method="post" action="{{ path('app_request_retry', {id: request.id}) }}" class="d-inline ms-3" data-turbo="false">
+                                                <input type="hidden" name="_token" value="{{ csrf_token('retry_request_' ~ request.id) }}">
+                                                <button type="submit" class="btn btn-warning btn-sm">
+                                                    <i class="bi bi-arrow-clockwise"></i> Relancer l'analyse
+                                                </button>
+                                            </form>
+                                        </div>
                                     </div>
                                 {% endif %}
                             {% endif %}
