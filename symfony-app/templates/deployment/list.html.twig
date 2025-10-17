@@ -1,0 +1,217 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Déploiements - {{ project.name }}{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <style>
+        .deployment-card {
+            border: none;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 1rem;
+            border-radius: 8px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .deployment-card:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+            transform: translateY(-2px);
+        }
+
+        .deployment-header {
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .deployment-header.deployed { background: linear-gradient(135deg, #16a34a 0%, #15803d 100%); color: white; }
+        .deployment-header.failed { background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); color: white; }
+        .deployment-header.deploying { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; }
+        .deployment-header.pending { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; }
+        .deployment-header.rolled_back { background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%); color: white; }
+
+        .env-badge {
+            font-size: 0.75rem;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+
+        .env-staging { background: #fef3c7; color: #92400e; }
+        .env-production { background: #fee2e2; color: #991b1b; }
+
+        .deploy-form {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+<div class="container-fluid py-4">
+    {# Breadcrumb #}
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item">
+                <a href="{{ path('app_projects_list') }}">
+                    <i class="bi bi-folder"></i> Projets
+                </a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{{ path('app_project_dashboard', {slug: project.slug}) }}">
+                    {{ project.name }}
+                </a>
+            </li>
+            <li class="breadcrumb-item active" aria-current="page">Déploiements</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <div class="col-md-8">
+            <h3 class="mb-4">
+                <i class="bi bi-rocket"></i> Déploiements
+            </h3>
+
+            {% if deployments is empty %}
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i>
+                    Aucun déploiement pour ce projet. Créez votre premier déploiement en sélectionnant une branche ci-contre.
+                </div>
+            {% else %}
+                {% for deployment in deployments %}
+                <div class="deployment-card">
+                    <div class="deployment-header {{ deployment.status|lower|replace({'_': ''}) }}">
+                        <div>
+                            <h6 class="mb-1">
+                                <i class="bi {% if deployment.status == 'DEPLOYED' %}bi-check-circle{% elseif deployment.status == 'FAILED' %}bi-x-circle{% elseif deployment.status == 'DEPLOYING' %}bi-arrow-clockwise{% else %}bi-clock{% endif %}"></i>
+                                <code>{{ deployment.branch_name }}</code>
+                                →
+                                <span class="env-badge env-{{ deployment.environment|lower }}">
+                                    {{ deployment.environment }}
+                                </span>
+                            </h6>
+                            <small class="opacity-75">
+                                {{ deployment.created_at|date('d/m/Y H:i') }}
+                                par {{ deployment.deployed_by }}
+                            </small>
+                        </div>
+                        <div>
+                            <span class="badge bg-white text-dark">{{ deployment.status }}</span>
+                        </div>
+                    </div>
+
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                {% if deployment.url %}
+                                <a href="{{ deployment.url }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-box-arrow-up-right"></i> Ouvrir l'application
+                                </a>
+                                {% endif %}
+                                {% if deployment.pr_url %}
+                                <a href="{{ deployment.pr_url }}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                                    <i class="bi bi-git"></i> PR #{{ deployment.pr_number }}
+                                </a>
+                                {% endif %}
+                            </div>
+                            <div>
+                                <a href="{{ path('app_deployment_detail', {deploymentId: deployment.id}) }}" class="btn btn-sm btn-outline-dark">
+                                    <i class="bi bi-eye"></i> Détails
+                                </a>
+                                {% if deployment.status == 'DEPLOYED' %}
+                                <form method="post" action="{{ path('app_deployment_rollback', {deploymentId: deployment.id}) }}" class="d-inline" data-turbo="false" onsubmit="return confirm('Êtes-vous sûr de vouloir effectuer un rollback ?')">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('rollback_' ~ deployment.id) }}">
+                                    <button type="submit" class="btn btn-sm btn-warning">
+                                        <i class="bi bi-arrow-counterclockwise"></i> Rollback
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+
+        <div class="col-md-4">
+            <div class="deploy-form">
+                <h5 class="mb-3">
+                    <i class="bi bi-plus-circle"></i> Nouveau Déploiement
+                </h5>
+
+                {% if gitBranches is empty %}
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        Aucune branche Git disponible. Créez d'abord une User Story et commitez le code sur Gitea.
+                    </div>
+                {% else %}
+                    <form method="post" action="{{ path('app_project_deploy', {slug: project.slug}) }}" data-turbo="false">
+                        <input type="hidden" name="_token" value="{{ csrf_token('deploy_project_' ~ project.slug) }}">
+
+                        <div class="mb-3">
+                            <label for="branch_id" class="form-label">Branche à déployer *</label>
+                            <select class="form-select" id="branch_id" name="branch_id" required>
+                                <option value="">-- Sélectionner une branche --</option>
+                                {% for branch in gitBranches %}
+                                <option value="{{ branch.id }}">
+                                    {{ branch.branch_name }}
+                                    (PR #{{ branch.pr_number|default('N/A') }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="environment" class="form-label">Environnement *</label>
+                            <select class="form-select" id="environment" name="environment" required>
+                                <option value="STAGING">🟡 Recette (Staging)</option>
+                                <option value="PRODUCTION">🔴 Production</option>
+                            </select>
+                            <small class="form-text text-muted">
+                                ⚠️ Attention: Le déploiement en production est irréversible
+                            </small>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="bi bi-rocket"></i> Lancer le Déploiement
+                        </button>
+                    </form>
+
+                    <hr class="my-3">
+
+                    <h6 class="text-muted mb-2">
+                        <i class="bi bi-info-circle"></i> Workflow de déploiement
+                    </h6>
+                    <ol class="small text-muted mb-0">
+                        <li>Clone du repository</li>
+                        <li>Checkout de la branche</li>
+                        <li>Composer install</li>
+                        <li>Migration base de données</li>
+                        <li>Build assets (Webpack)</li>
+                        <li>Déploiement sur Coolify</li>
+                    </ol>
+                {% endif %}
+            </div>
+
+            {% if project.gitea_repo_url %}
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h6 class="card-title">
+                        <i class="bi bi-git"></i> Dépôt Git
+                    </h6>
+                    <a href="{{ project.gitea_repo_url }}" target="_blank" class="btn btn-sm btn-outline-primary w-100">
+                        <i class="bi bi-box-arrow-up-right"></i> Ouvrir dans Gitea
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

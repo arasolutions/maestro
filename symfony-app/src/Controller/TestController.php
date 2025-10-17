@@ -86,6 +86,24 @@ class TestController extends AbstractController
             throw $this->createNotFoundException('User story introuvable');
         }
 
+        // Get latest CI build if exists
+        $latestBuild = null;
+        $gitBranch = $this->connection->fetchAssociative(
+            'SELECT id FROM maestro.git_branches WHERE user_story_id = :userStoryId ORDER BY created_at DESC LIMIT 1',
+            ['userStoryId' => $userStoryRecord['id']]
+        );
+
+        if ($gitBranch) {
+            $latestBuild = $this->connection->fetchAssociative(
+                'SELECT * FROM maestro.ci_builds WHERE branch_id = :branchId ORDER BY created_at DESC LIMIT 1',
+                ['branchId' => $gitBranch['id']]
+            );
+
+            if ($latestBuild && $latestBuild['test_results']) {
+                $latestBuild['test_results'] = json_decode($latestBuild['test_results'], true);
+            }
+        }
+
         return $this->render('test/view.html.twig', [
             'story' => $story,
             'analysis' => $analysis,
@@ -95,6 +113,7 @@ class TestController extends AbstractController
             'generatedCode' => $generatedCode,
             'testScenarios' => $testScenarios,
             'hasTests' => $testScenarios !== null,
+            'latestBuild' => $latestBuild,
         ]);
     }
 

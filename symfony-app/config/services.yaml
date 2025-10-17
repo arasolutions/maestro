@@ -8,6 +8,8 @@ parameters:
     gitea_url: '%env(GITEA_URL)%'
     gitea_token: '%env(GITEA_API_TOKEN)%'
     gitea_org_name: '%env(GITEA_ORG_NAME)%'
+    coolify_url: '%env(COOLIFY_URL)%'
+    coolify_token: '%env(COOLIFY_API_TOKEN)%'
 
 services:
     # default configuration for services in *this* file
@@ -34,3 +36,9 @@ services:
             $giteaUrl: '%gitea_url%'
             $giteaToken: '%gitea_token%'
             $giteaOrgName: '%gitea_org_name%'
+
+    # Coolify Service Configuration
+    App\Service\CoolifyService:
+        arguments:
+            $coolifyUrl: '%coolify_url%'
+            $coolifyToken: '%coolify_token%'

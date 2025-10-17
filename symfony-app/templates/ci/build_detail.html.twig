@@ -1,0 +1,208 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Build #{{ build.build_number }} - {{ gitBranch.branch_name }}{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <style>
+        .build-header {
+            background: linear-gradient(135deg,
+                {% if build.status == 'SUCCESS' %}#16a34a 0%, #15803d 100%
+                {% elseif build.status == 'FAILED' %}#dc2626 0%, #b91c1c 100%
+                {% elseif build.status == 'RUNNING' %}#3b82f6 0%, #2563eb 100%
+                {% else %}#6b7280 0%, #4b5563 100%{% endif %}
+            );
+            color: white;
+            padding: 2rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 8px;
+            padding: 1rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            text-align: center;
+        }
+
+        .logs-container {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 1.5rem;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.875rem;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .log-line {
+            margin-bottom: 0.25rem;
+        }
+
+        .log-error { color: #f87171; }
+        .log-warning { color: #fbbf24; }
+        .log-success { color: #4ade80; }
+        .log-info { color: #60a5fa; }
+
+        .test-failure {
+            background: #fef2f2;
+            border-left: 4px solid #dc2626;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-radius: 4px;
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+<div class="container-fluid py-4">
+    {# Breadcrumb #}
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item">
+                <a href="{{ path('app_projects_list') }}">
+                    <i class="bi bi-folder"></i> Projets
+                </a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{{ path('app_project_dashboard', {slug: gitBranch.project_slug}) }}">
+                    {{ gitBranch.project_name }}
+                </a>
+            </li>
+            <li class="breadcrumb-item active" aria-current="page">Build #{{ build.build_number }}</li>
+        </ol>
+    </nav>
+
+    {# Build Header #}
+    <div class="build-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h3 class="mb-2">
+                    <i class="bi {% if build.status == 'SUCCESS' %}bi-check-circle{% elseif build.status == 'FAILED' %}bi-x-circle{% elseif build.status == 'RUNNING' %}bi-arrow-clockwise{% else %}bi-clock{% endif %}"></i>
+                    Build #{{ build.build_number }}
+                </h3>
+                <p class="mb-0 opacity-75">
+                    <code>{{ gitBranch.branch_name }}</code>
+                    {% if build.pr_url %}
+                    | <a href="{{ build.pr_url }}" target="_blank" class="text-white">PR #{{ build.pr_number }}</a>
+                    {% endif %}
+                </p>
+            </div>
+            <div>
+                <span class="badge bg-white text-dark fs-5">{{ build.status }}</span>
+            </div>
+        </div>
+    </div>
+
+    {# Statistics #}
+    <div class="stats-grid">
+        <div class="stat-card">
+            <h6 class="text-muted mb-2">Démarré</h6>
+            <h4 class="mb-0">{{ build.started_at|date('H:i:s') }}</h4>
+            <small class="text-muted">{{ build.started_at|date('d/m/Y') }}</small>
+        </div>
+
+        {% if build.finished_at %}
+        <div class="stat-card">
+            <h6 class="text-muted mb-2">Terminé</h6>
+            <h4 class="mb-0">{{ build.finished_at|date('H:i:s') }}</h4>
+            <small class="text-muted">{{ build.finished_at|date('d/m/Y') }}</small>
+        </div>
+        {% endif %}
+
+        <div class="stat-card">
+            <h6 class="text-muted mb-2">Durée</h6>
+            <h4 class="mb-0">{{ build.duration ?: 'N/A' }}</h4>
+            <small class="text-muted">secondes</small>
+        </div>
+
+        {% if build.test_results %}
+        <div class="stat-card">
+            <h6 class="text-muted mb-2">Tests réussis</h6>
+            <h4 class="mb-0 text-success">{{ build.test_results.passed|default(0) }}</h4>
+            <small class="text-muted">/ {{ build.test_results.total|default(0) }}</small>
+        </div>
+
+        <div class="stat-card">
+            <h6 class="text-muted mb-2">Tests échoués</h6>
+            <h4 class="mb-0 text-danger">{{ build.test_results.failed|default(0) }}</h4>
+            <small class="text-muted">/ {{ build.test_results.total|default(0) }}</small>
+        </div>
+
+        <div class="stat-card">
+            <h6 class="text-muted mb-2">Coverage</h6>
+            <h4 class="mb-0 text-info">{{ build.coverage|default(0) }}%</h4>
+            <small class="text-muted">code coverage</small>
+        </div>
+        {% endif %}
+    </div>
+
+    {# Test Failures #}
+    {% if build.status == 'FAILED' and build.test_results and build.test_results.failures %}
+    <h5 class="mb-3">
+        <i class="bi bi-exclamation-triangle text-danger"></i> Tests en Échec
+    </h5>
+    {% for failure in build.test_results.failures %}
+    <div class="test-failure">
+        <h6 class="mb-2">
+            <i class="bi bi-x-circle text-danger"></i>
+            <code>{{ failure.test }}</code>
+        </h6>
+        <p class="mb-1"><strong>Message:</strong> {{ failure.message }}</p>
+        {% if failure.file %}
+        <small class="text-muted">
+            <i class="bi bi-file-code"></i> {{ failure.file }}
+            {% if failure.line %}:{{ failure.line }}{% endif %}
+        </small>
+        {% endif %}
+        {% if failure.trace %}
+        <details class="mt-2">
+            <summary class="text-muted" style="cursor: pointer;">Stack Trace</summary>
+            <pre class="mt-2 mb-0" style="background: #f8f9fa; padding: 0.5rem; border-radius: 4px; font-size: 0.75rem;">{{ failure.trace }}</pre>
+        </details>
+        {% endif %}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {# Build Logs #}
+    {% if build.logs %}
+    <h5 class="mb-3">
+        <i class="bi bi-terminal"></i> Logs du Build
+    </h5>
+    <div class="logs-container">
+        {% set logLines = build.logs|split('\n') %}
+        {% for line in logLines %}
+        <div class="log-line
+            {% if 'error' in line|lower or 'fail' in line|lower %}log-error
+            {% elseif 'warning' in line|lower %}log-warning
+            {% elseif 'success' in line|lower or 'ok' in line|lower %}log-success
+            {% elseif 'info' in line|lower %}log-info
+            {% endif %}
+        ">{{ line }}</div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle"></i>
+        Aucun log disponible pour ce build.
+    </div>
+    {% endif %}
+
+    {# Back Button #}
+    <div class="text-center mt-4">
+        <a href="javascript:history.back()" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Retour
+        </a>
+    </div>
+</div>
+{% endblock %}

@@ -134,6 +134,9 @@
                             <a class="nav-link text-white" href="{{ path('app_monitoring') }}">🔍 Monitoring</a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link text-white" href="{{ path('app_project_deployments', {slug: app.session.get('current_project_slug')}) }}">🚀 Déploiements</a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link text-white" href="{{ path('app_projects_list') }}">⚙️ Projets</a>
                         </li>
                         <li class="nav-item">

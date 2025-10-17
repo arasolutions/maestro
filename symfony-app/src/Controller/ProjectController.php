@@ -2,7 +2,9 @@
 
 namespace App\Controller;
 
+use App\Service\CoolifyService;
 use Doctrine\DBAL\Connection;
+use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -12,7 +14,9 @@ use Symfony\Component\Uid\Uuid;
 class ProjectController extends AbstractController
 {
     public function __construct(
-        private readonly Connection $connection
+        private readonly Connection $connection,
+        private readonly CoolifyService $coolifyService,
+        private readonly LoggerInterface $logger
     ) {
     }
 
@@ -434,5 +438,96 @@ class ProjectController extends AbstractController
             'analyses_by_month' => [],
             'generated_at' => (new \DateTime())->format('c')
         ];
+    }
+
+    /**
+     * Initialize Coolify environment for project (AUTOMATIC)
+     */
+    #[Route('/projects/{slug}/coolify-init', name: 'app_coolify_init', methods: ['POST'])]
+    public function coolifyInit(string $slug, Request $request): Response
+    {
+        // CSRF validation
+        $token = $request->request->get('_token');
+        if (!$this->isCsrfTokenValid('coolify_init_' . $slug, $token)) {
+            $this->addFlash('error', 'Token CSRF invalide');
+            return $this->redirectToRoute('app_project_edit', ['slug' => $slug]);
+        }
+
+        try {
+            $project = $this->connection->fetchAssociative(
+                'SELECT * FROM maestro.projects WHERE slug = :slug',
+                ['slug' => $slug]
+            );
+
+            if (!$project) {
+                throw $this->createNotFoundException('Projet introuvable');
+            }
+
+            // Check if Gitea repo exists
+            if (!$project['gitea_repo_url']) {
+                throw new \Exception('Aucun dépôt Gitea configuré. Initialisez d\'abord le dépôt Gitea.');
+            }
+
+            // Check if already configured
+            $config = json_decode($project['config'] ?? '{}', true);
+            if (isset($config['coolify_project_uuid'])) {
+                throw new \Exception('Coolify est déjà configuré pour ce projet.');
+            }
+
+            $this->logger->info('Initializing Coolify for project', [
+                'project' => $slug
+            ]);
+
+            // Call CoolifyService to setup everything
+            $result = $this->coolifyService->setupProject(
+                $project['slug'],
+                $project['name'],
+                $project['gitea_repo_url']
+            );
+
+            if (!$result['success']) {
+                throw new \Exception($result['error'] ?? 'Échec de la configuration Coolify');
+            }
+
+            // Update project config with Coolify UUIDs
+            $config = json_decode($project['config'] ?? '{}', true);
+            $config['coolify_project_uuid'] = $result['coolify_project_uuid'];
+            $config['coolify_staging_uuid'] = $result['coolify_staging_uuid'];
+            $config['coolify_staging_url'] = $result['coolify_staging_url'];
+            $config['coolify_production_uuid'] = $result['coolify_production_uuid'];
+            $config['coolify_production_url'] = $result['coolify_production_url'];
+
+            $this->connection->update('maestro.projects', [
+                'config' => json_encode($config)
+            ], [
+                'id' => $project['id']
+            ]);
+
+            $this->addFlash('success', sprintf(
+                'Environnements Coolify créés ! <br>
+                🟡 <strong>Staging:</strong> <a href="%s" target="_blank" class="alert-link">%s</a><br>
+                🔴 <strong>Production:</strong> <a href="%s" target="_blank" class="alert-link">%s</a>',
+                $result['coolify_staging_url'],
+                $result['coolify_staging_url'],
+                $result['coolify_production_url'],
+                $result['coolify_production_url']
+            ));
+
+            $this->logger->info('Coolify initialized successfully', [
+                'project' => $slug,
+                'staging_url' => $result['coolify_staging_url'],
+                'production_url' => $result['coolify_production_url']
+            ]);
+
+        } catch (\Exception $e) {
+            $this->logger->error('Coolify initialization failed', [
+                'error' => $e->getMessage(),
+                'project' => $slug
+            ]);
+
+            $this->addFlash('error', 'Erreur lors de l\'initialisation Coolify: ' . $e->getMessage());
+        }
+
+        return $this->redirectToRoute('app_project_edit', ['slug' => $slug]);
     }
 }

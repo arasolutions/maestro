@@ -131,6 +131,34 @@
     </div>
 
     {% if hasTests and testScenarios %}
+        {# CI Build Status #}
+        {% if latestBuild %}
+        <div class="alert {% if latestBuild.status == 'SUCCESS' %}alert-success{% elseif latestBuild.status == 'RUNNING' %}alert-info{% elseif latestBuild.status == 'FAILED' %}alert-danger{% else %}alert-secondary{% endif %} d-flex align-items-center justify-content-between">
+            <div>
+                <i class="bi {% if latestBuild.status == 'SUCCESS' %}bi-check-circle{% elseif latestBuild.status == 'RUNNING' %}bi-arrow-clockwise{% elseif latestBuild.status == 'FAILED' %}bi-x-circle{% else %}bi-clock{% endif %}"></i>
+                <strong>Build #{{ latestBuild.build_number }}</strong>
+                -
+                {% if latestBuild.status == 'SUCCESS' %}
+                    Tests passés ({{ latestBuild.test_results.passed|default(0) }}/{{ latestBuild.test_results.total|default(0) }})
+                {% elseif latestBuild.status == 'RUNNING' %}
+                    Build en cours...
+                {% elseif latestBuild.status == 'FAILED' %}
+                    Build échoué ({{ latestBuild.test_results.failed|default(0) }} tests en erreur)
+                {% else %}
+                    {{ latestBuild.status }}
+                {% endif %}
+                <br>
+                <small class="text-muted">
+                    Durée: {{ latestBuild.duration ? (latestBuild.duration ~ 's') : 'N/A' }}
+                    | Coverage: {{ latestBuild.coverage|default(0) }}%
+                </small>
+            </div>
+            <a href="{{ path('app_user_story_builds', {analysisId: analysisId, storyId: story.id}) }}" class="btn btn-sm btn-outline-dark">
+                Voir les builds <i class="bi bi-arrow-right"></i>
+            </a>
+        </div>
+        {% endif %}
+
         {# Statistics Row #}
         <div class="row g-3 mb-4">
             <div class="col-md-3">

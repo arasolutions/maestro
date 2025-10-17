@@ -1,0 +1,288 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Déploiement - {{ deployment.environment }}{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <style>
+        .deployment-header {
+            background: linear-gradient(135deg,
+                {% if deployment.status == 'DEPLOYED' %}#16a34a 0%, #15803d 100%
+                {% elseif deployment.status == 'FAILED' %}#dc2626 0%, #b91c1c 100%
+                {% elseif deployment.status == 'DEPLOYING' %}#3b82f6 0%, #2563eb 100%
+                {% else %}#f59e0b 0%, #d97706 100%{% endif %}
+            );
+            color: white;
+            padding: 2rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 8px;
+            padding: 1rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            text-align: center;
+        }
+
+        .env-badge {
+            font-size: 1rem;
+            padding: 0.5rem 1.5rem;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+
+        .env-staging { background: #fef3c7; color: #92400e; }
+        .env-production { background: #fee2e2; color: #991b1b; }
+
+        .logs-container {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 1.5rem;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.875rem;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .log-line {
+            margin-bottom: 0.25rem;
+        }
+
+        .timeline {
+            position: relative;
+            padding-left: 2rem;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 0.5rem;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #e5e7eb;
+        }
+
+        .timeline-item {
+            position: relative;
+            margin-bottom: 1.5rem;
+        }
+
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -1.5rem;
+            top: 0.25rem;
+            width: 1rem;
+            height: 1rem;
+            border-radius: 50%;
+            background: white;
+            border: 3px solid #3b82f6;
+        }
+
+        .timeline-item.success::before { border-color: #16a34a; }
+        .timeline-item.error::before { border-color: #dc2626; }
+    </style>
+{% endblock %}
+
+{% block body %}
+<div class="container-fluid py-4">
+    {# Breadcrumb #}
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item">
+                <a href="{{ path('app_projects_list') }}">
+                    <i class="bi bi-folder"></i> Projets
+                </a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{{ path('app_project_dashboard', {slug: deployment.project_slug}) }}">
+                    {{ deployment.project_name }}
+                </a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{{ path('app_project_deployments', {slug: deployment.project_slug}) }}">
+                    Déploiements
+                </a>
+            </li>
+            <li class="breadcrumb-item active" aria-current="page">{{ deployment.environment }}</li>
+        </ol>
+    </nav>
+
+    {# Deployment Header #}
+    <div class="deployment-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h3 class="mb-2">
+                    <i class="bi {% if deployment.status == 'DEPLOYED' %}bi-check-circle{% elseif deployment.status == 'FAILED' %}bi-x-circle{% elseif deployment.status == 'DEPLOYING' %}bi-arrow-clockwise{% else %}bi-clock{% endif %}"></i>
+                    Déploiement {{ deployment.environment }}
+                </h3>
+                <p class="mb-0 opacity-75">
+                    Branche: <code>{{ deployment.branch_name }}</code>
+                    {% if deployment.pr_url %}
+                    | <a href="{{ deployment.pr_url }}" target="_blank" class="text-white">PR #{{ deployment.pr_number }}</a>
+                    {% endif %}
+                </p>
+            </div>
+            <div>
+                <span class="env-badge env-{{ deployment.environment|lower }}">
+                    {{ deployment.environment }}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    {# Statistics #}
+    <div class="stats-grid">
+        <div class="stat-card">
+            <h6 class="text-muted mb-2">Status</h6>
+            <h4 class="mb-0">
+                <span class="badge {% if deployment.status == 'DEPLOYED' %}bg-success{% elseif deployment.status == 'FAILED' %}bg-danger{% elseif deployment.status == 'DEPLOYING' %}bg-info{% else %}bg-warning{% endif %}">
+                    {{ deployment.status }}
+                </span>
+            </h4>
+        </div>
+
+        <div class="stat-card">
+            <h6 class="text-muted mb-2">Déployé le</h6>
+            <h4 class="mb-0">{{ deployment.created_at|date('H:i:s') }}</h4>
+            <small class="text-muted">{{ deployment.created_at|date('d/m/Y') }}</small>
+        </div>
+
+        {% if deployment.deployed_at %}
+        <div class="stat-card">
+            <h6 class="text-muted mb-2">Terminé le</h6>
+            <h4 class="mb-0">{{ deployment.deployed_at|date('H:i:s') }}</h4>
+            <small class="text-muted">{{ deployment.deployed_at|date('d/m/Y') }}</small>
+        </div>
+        {% endif %}
+
+        <div class="stat-card">
+            <h6 class="text-muted mb-2">Déployé par</h6>
+            <h4 class="mb-0">{{ deployment.deployed_by }}</h4>
+        </div>
+
+        {% if deployment.url %}
+        <div class="stat-card">
+            <h6 class="text-muted mb-2">URL</h6>
+            <a href="{{ deployment.url }}" target="_blank" class="btn btn-sm btn-primary">
+                <i class="bi bi-box-arrow-up-right"></i> Ouvrir
+            </a>
+        </div>
+        {% endif %}
+
+        {% if deployment.coolify_deployment_id %}
+        <div class="stat-card">
+            <h6 class="text-muted mb-2">Coolify ID</h6>
+            <small><code>{{ deployment.coolify_deployment_id }}</code></small>
+        </div>
+        {% endif %}
+    </div>
+
+    {# Actions #}
+    <div class="mb-4">
+        {% if deployment.status == 'DEPLOYED' %}
+        <form method="post" action="{{ path('app_deployment_rollback', {deploymentId: deployment.id}) }}" class="d-inline" data-turbo="false" onsubmit="return confirm('Êtes-vous sûr de vouloir effectuer un rollback vers le déploiement précédent ?')">
+            <input type="hidden" name="_token" value="{{ csrf_token('rollback_' ~ deployment.id) }}">
+            <button type="submit" class="btn btn-warning">
+                <i class="bi bi-arrow-counterclockwise"></i> Effectuer un Rollback
+            </button>
+        </form>
+        {% endif %}
+
+        {% if deployment.url %}
+        <a href="{{ deployment.url }}" target="_blank" class="btn btn-primary">
+            <i class="bi bi-box-arrow-up-right"></i> Ouvrir l'Application
+        </a>
+        {% endif %}
+    </div>
+
+    {# Deployment Timeline #}
+    <h5 class="mb-3">
+        <i class="bi bi-clock-history"></i> Timeline du Déploiement
+    </h5>
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <div class="timeline">
+                <div class="timeline-item success">
+                    <strong>Déploiement créé</strong>
+                    <br>
+                    <small class="text-muted">{{ deployment.created_at|date('d/m/Y H:i:s') }}</small>
+                </div>
+
+                {% if deployment.status == 'DEPLOYING' %}
+                <div class="timeline-item">
+                    <strong>Déploiement en cours...</strong>
+                    <br>
+                    <small class="text-muted">En cours d'exécution</small>
+                </div>
+                {% endif %}
+
+                {% if deployment.deployed_at %}
+                <div class="timeline-item success">
+                    <strong>Déploiement terminé</strong>
+                    <br>
+                    <small class="text-muted">{{ deployment.deployed_at|date('d/m/Y H:i:s') }}</small>
+                </div>
+                {% endif %}
+
+                {% if deployment.status == 'FAILED' %}
+                <div class="timeline-item error">
+                    <strong>Déploiement échoué</strong>
+                    <br>
+                    <small class="text-muted">Voir les logs ci-dessous</small>
+                </div>
+                {% endif %}
+
+                {% if deployment.status == 'ROLLED_BACK' %}
+                <div class="timeline-item error">
+                    <strong>Rollback effectué</strong>
+                    <br>
+                    <small class="text-muted">Déploiement annulé</small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {# Deployment Logs #}
+    {% if logs %}
+    <h5 class="mb-3">
+        <i class="bi bi-terminal"></i> Logs du Déploiement
+    </h5>
+    <div class="logs-container">
+        {% set logLines = logs|split('\n') %}
+        {% for line in logLines %}
+        <div class="log-line">{{ line }}</div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle"></i>
+        Logs non disponibles pour ce déploiement.
+        {% if deployment.status == 'PENDING' %}
+        Le déploiement est en attente de traitement.
+        {% elseif deployment.status == 'DEPLOYING' %}
+        Le déploiement est en cours, les logs seront bientôt disponibles.
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {# Back Button #}
+    <div class="text-center mt-4">
+        <a href="{{ path('app_project_deployments', {slug: deployment.project_slug}) }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Retour aux déploiements
+        </a>
+    </div>
+</div>
+{% endblock %}
