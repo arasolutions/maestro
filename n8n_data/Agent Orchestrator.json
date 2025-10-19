@@ -50,7 +50,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT a.*, r.request_text as original_request, r.status as request_status\nFROM maestro.analyses a\nJOIN maestro.requests r ON a.request_id = r.id\nWHERE a.id = $1::uuid",
+        "query": "SELECT a.*, r.status as request_status\nFROM maestro.analyses a\nJOIN maestro.requests r ON a.request_id = r.id\nWHERE a.id = $1::uuid",
         "options": {
           "queryReplacement": "={{ [$('Keep Input Data').item.json.analysis_id] }}"
         }
@@ -89,7 +89,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Extraire l'analyse depuis PostgreSQL\nconst analysis = $input.first().json;\nconst inputData = $('Keep Input Data').first().json;\n\nconsole.log('=== ORCHESTRATOR v2 STARTED (sans CADRAGE) ===');\nconsole.log('Analysis ID:', inputData.analysis_id);\nconsole.log('Complexity:', analysis.complexity);\nconsole.log('Agents needed:', analysis.agents_needed);\n\n// Parser agents_needed (JSONB)\nlet agentsNeeded = [];\ntry {\n  agentsNeeded = typeof analysis.agents_needed === 'string' \n    ? JSON.parse(analysis.agents_needed) \n    : analysis.agents_needed || [];\n} catch(e) {\n  console.error('Error parsing agents_needed:', e);\n  agentsNeeded = [];\n}\n\n// Filtrer CADRAGE s'il est présent (anciennes analyses)\nif (agentsNeeded.includes('CADRAGE')) {\n  console.warn('⚠️ CADRAGE détecté dans agents_needed - suppression (agent déprécié)');\n  agentsNeeded = agentsNeeded.filter(a => a !== 'CADRAGE');\n}\n\n// Déterminer quels agents lancer (workflow simplifié : PM → US → DEV → TEST → DEPLOY)\nconst orchestrationPlan = {\n  analysis_id: inputData.analysis_id,\n  request_id: inputData.request_id,\n  project_id: inputData.project_id,\n  original_request: analysis.original_request,\n  complexity: analysis.complexity,\n  priority: analysis.priority,\n  agents_needed: agentsNeeded,\n  parallel_possible: Boolean(analysis.parallel_possible),\n  \n  // Flags pour routing SÉQUENTIEL (CADRAGE supprimé 2025-10-17)\n  needs_us: agentsNeeded.includes('US'),\n  needs_dev: agentsNeeded.includes('DEV'),\n  needs_test: agentsNeeded.includes('TEST'),\n  needs_deploy: agentsNeeded.includes('DEPLOY'),\n  \n  // Stockage des IDs pour chaînage\n  us_id: null,\n  dev_id: null,\n  \n  timestamp: new Date().toISOString()\n};\n\nconsole.log('Orchestration plan:', orchestrationPlan);\nconsole.log('Workflow: PM → US → DEV → TEST → DEPLOY');\n\nreturn [{ json: orchestrationPlan }];"
+        "jsCode": "const analysis = $('Fetch Analysis from DB').first().json;\nconst inputData = $('Keep Input Data').first().json;\n\nconsole.log('=== ORCHESTRATOR v2 STARTED ===');\nconsole.log('Analysis:', JSON.stringify(analysis, null, 2));\n\nlet agentsNeeded = [];\ntry {\n  agentsNeeded = typeof analysis.agents_needed === 'string' ? JSON.parse(analysis.agents_needed) : (analysis.agents_needed || []);\n} catch(e) {\n  console.error('Error parsing agents_needed:', e);\n  agentsNeeded = [];\n}\n\nif (agentsNeeded.includes('CADRAGE')) {\n  console.warn('Filtering out CADRAGE');\n  agentsNeeded = agentsNeeded.filter(a => a !== 'CADRAGE');\n}\n\nconst requestText = analysis.request_text || '';\n\nconst orchestrationPlan = {\n  analysis_id: inputData.analysis_id,\n  request_id: inputData.request_id,\n  project_id: inputData.project_id,\n  original_request: requestText,\n  complexity: analysis.complexity || 'M',\n  priority: analysis.priority || 'MEDIUM',\n  agents_needed: agentsNeeded,\n  parallel_possible: Boolean(analysis.parallel_possible),\n  needs_us: agentsNeeded.includes('US'),\n  needs_dev: agentsNeeded.includes('DEV'),\n  needs_test: agentsNeeded.includes('TEST'),\n  needs_deploy: agentsNeeded.includes('DEPLOY'),\n  us_id: null,\n  dev_id: null,\n  timestamp: new Date().toISOString()\n};\n\nconsole.log('Plan created:', orchestrationPlan);\n\nreturn [{ json: orchestrationPlan }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -160,7 +160,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Récupérer le plan d'orchestration initial\nconst plan = $('Prepare Orchestration Plan').first().json;\nlet updatedPlan = { ...plan };\n\n// Si US a été exécuté, récupérer les infos\nif ($('Call US Agent').all().length > 0) {\n  const usResponse = $('Call US Agent').first().json;\n  \n  // Vérifier si la réponse est valide\n  if (usResponse && usResponse.status === 'success') {\n    updatedPlan.us_count = usResponse.total_stories || 0;\n    console.log('✅ US completed, stories created:', updatedPlan.us_count);\n  } else {\n    console.error('❌ US failed or returned invalid response');\n    updatedPlan.us_count = 0;\n    updatedPlan.us_error = true;\n  }\n} else {\n  console.log('⏭️ US skipped');\n}\n\nreturn [{ json: updatedPlan }];"
+        "jsCode": "const plan = $('Prepare Orchestration Plan').first().json;\nlet updatedPlan = { ...plan };\n\nif ($('Call US Agent').all().length > 0) {\n  const usResponse = $('Call US Agent').first().json;\n  if (usResponse && usResponse.status === 'success') {\n    updatedPlan.us_count = usResponse.total_stories || 0;\n    console.log('✅ US completed, stories created:', updatedPlan.us_count);\n  } else {\n    console.error('❌ US failed');\n    updatedPlan.us_count = 0;\n    updatedPlan.us_error = true;\n  }\n} else {\n  console.log('⏭️ US skipped');\n}\n\nreturn [{ json: updatedPlan }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -205,7 +205,7 @@
             {
               "id": "field3",
               "name": "message",
-              "value": "Agent DEV pas encore implémenté avec Gitea",
+              "value": "Agent DEV pas encore implémenté",
               "type": "string"
             }
           ]
@@ -225,7 +225,7 @@
             {
               "id": "field1",
               "name": "message",
-              "value": "No DEV generation needed",
+              "value": "No DEV needed",
               "type": "string"
             }
           ]
@@ -240,7 +240,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Récupérer le plan mis à jour\nconst plan = $('Update Plan After US').first().json;\nlet updatedPlan = { ...plan };\n\n// Si DEV a été exécuté\nif ($('DEV Agent (TODO)').all().length > 0) {\n  console.log('⏳ DEV placeholder executed');\n} else {\n  console.log('⏭️ DEV skipped');\n}\n\nreturn [{ json: updatedPlan }];"
+        "jsCode": "const plan = $('Update Plan After US').first().json;\nlet updatedPlan = { ...plan };\n\nif ($('DEV Agent (TODO)').all().length > 0) {\n  console.log('⏳ DEV placeholder executed');\n} else {\n  console.log('⏭️ DEV skipped');\n}\n\nreturn [{ json: updatedPlan }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -320,7 +320,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Compiler tous les résultats de l'orchestration\nconst orchestrationPlan = $('Update Plan After DEV').first().json;\n\nconst results = {\n  request_id: orchestrationPlan.request_id,\n  analysis_id: orchestrationPlan.analysis_id,\n  project_id: orchestrationPlan.project_id,\n  timestamp: new Date().toISOString(),\n  complexity: orchestrationPlan.complexity,\n  agents_executed: [],\n  us_count: orchestrationPlan.us_count || 0,\n  errors: []\n};\n\n// Vérifier si US a été exécuté\nif ($('Call US Agent').all().length > 0) {\n  if (orchestrationPlan.us_error) {\n    results.errors.push('US generation failed');\n  } else {\n    results.agents_executed.push('US');\n    console.log('✅ US completed');\n  }\n}\n\n// DEV\nif ($('DEV Agent (TODO)').all().length > 0) {\n  results.agents_executed.push('DEV (placeholder)');\n}\n\n// TEST\nif ($('TEST Agent (TODO)').all().length > 0) {\n  results.agents_executed.push('TEST (placeholder)');\n}\n\nresults.orchestration_status = results.errors.length > 0 ? 'COMPLETED_WITH_ERRORS' : 'COMPLETED';\nresults.summary = `Orchestration complétée avec ${results.agents_executed.length} agent(s): ${results.agents_executed.join(' → ')}`;\n\nif (results.us_count > 0) {\n  results.summary += ` | ${results.us_count} User Stories créées`;\n}\n\nif (results.errors.length > 0) {\n  results.summary += ` | Erreurs: ${results.errors.join(', ')}`;\n}\n\nconsole.log('=== ORCHESTRATION COMPLETE (sans CADRAGE) ===');\nconsole.log('Agents executed:', results.agents_executed.join(' → '));\nconsole.log('User Stories:', results.us_count);\nif (results.errors.length > 0) {\n  console.log('Errors:', results.errors);\n}\n\nreturn [{ json: results }];"
+        "jsCode": "const orchestrationPlan = $('Update Plan After DEV').first().json;\n\nconst results = {\n  request_id: orchestrationPlan.request_id,\n  analysis_id: orchestrationPlan.analysis_id,\n  project_id: orchestrationPlan.project_id,\n  timestamp: new Date().toISOString(),\n  complexity: orchestrationPlan.complexity,\n  agents_executed: [],\n  us_count: orchestrationPlan.us_count || 0,\n  errors: []\n};\n\nif ($('Call US Agent').all().length > 0) {\n  if (orchestrationPlan.us_error) {\n    results.errors.push('US generation failed');\n  } else {\n    results.agents_executed.push('US');\n  }\n}\n\nif ($('DEV Agent (TODO)').all().length > 0) {\n  results.agents_executed.push('DEV (placeholder)');\n}\n\nif ($('TEST Agent (TODO)').all().length > 0) {\n  results.agents_executed.push('TEST (placeholder)');\n}\n\nresults.orchestration_status = results.errors.length > 0 ? 'COMPLETED_WITH_ERRORS' : 'COMPLETED';\nresults.summary = `Orchestration complétée avec ${results.agents_executed.length} agent(s): ${results.agents_executed.join(' → ')}`;\n\nif (results.us_count > 0) {\n  results.summary += ` | ${results.us_count} User Stories créées`;\n}\n\nif (results.errors.length > 0) {\n  results.summary += ` | Erreurs: ${results.errors.join(', ')}`;\n}\n\nconsole.log('=== ORCHESTRATION COMPLETE ===');\nconsole.log('Agents executed:', results.agents_executed.join(' → '));\nconsole.log('User Stories:', results.us_count);\n\nreturn [{ json: results }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
